@@ -1,7 +1,7 @@
 // -*- C++ -*-
 //
-// Package:    Phase2TrackerValidateDigi
-// Class:      Phase2TrackerValidateDigi
+// Package:    Phase2TrackerValidateCluster
+// Class:      Phase2TrackerValidateCluster
 //
 /**\class Phase2TrackerValidateCluster Phase2TrackerValidateCluster.cc 
 
@@ -18,12 +18,14 @@
 
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Utilities/interface/InputTag.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/Framework/interface/ESWatcher.h"
+
 
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
-#include "DataFormats/Phase2TrackerCluster/interface/Phase2Trackercluster1D.h"
 
 
 
@@ -33,8 +35,8 @@
 //
 // constructors
 //
-Phase2TrackerValidateDigi::Phase2TrackerValidateDigi(const edm::ParameterSet& iConfig)
-    : config_(iconfig),
+Phase2TrackerValidateCluster::Phase2TrackerValidateCluster(const edm::ParameterSet& iConfig)
+    : config_(iConfig),
       clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("src"))),
       geomType_(config_.getParameter<std::string>("GeometryType"))
 
@@ -42,7 +44,7 @@ Phase2TrackerValidateDigi::Phase2TrackerValidateDigi(const edm::ParameterSet& iC
   edm::LogInfo("Phase2TrackerValidateCluster") << ">>> Construct Phase2TrackerValidateCluster ";
 }
     
-Phase2TrackerValidateDigi::~Phase2TrackerValidateDigi() {
+Phase2TrackerValidateCluster::~Phase2TrackerValidateCluster() {
   // do anything here that needs to be done at desctruction time
   // (e.g. close files, deallocate resources etc.)
   edm::LogInfo("Phase2TrackerValidateCluster") << ">>> Destroy Phase2TrackerValidateCluster ";
@@ -52,7 +54,7 @@ Phase2TrackerValidateDigi::~Phase2TrackerValidateDigi() {
 //
 // -- Analyze
 //
-void Phase2TrackerValidateDigi::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
+void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
   // Getting the clusters
@@ -65,11 +67,8 @@ void Phase2TrackerValidateDigi::analyze(const edm::Event& iEvent, const edm::Eve
   if (theTkDigiGeomWatcher.check(iSetup)) {
     edm::ESHandle<TrackerGeometry> geomHandle;
     iSetup.get<TrackerDigiGeometryRecord>().get(geomType_, geomHandle);
+    if(!geomHandle.isValid()) return;
   }
-  if(!geomHandle.isValid()) return;
-
-
-
   /*
   for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusters->begin(); DSVItr != clusters->end(); ++DSVItr){
     unsigned int rawid(DSVItr->detId());
@@ -78,7 +77,17 @@ void Phase2TrackerValidateDigi::analyze(const edm::Event& iEvent, const edm::Eve
     const TrackerGeometry* tkrGeom = geomHandle.product();
   }
   */
-
-
+  return;
 }
-DEFINE_FWK_MODULE(Phase2TrackerValidateCluster);
+
+//
+// -- Book Histograms
+//
+void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker, 
+    edm::Run const& iRun, 
+    edm::EventSetup const& iSetup){
+
+
+  return;
+}
+
