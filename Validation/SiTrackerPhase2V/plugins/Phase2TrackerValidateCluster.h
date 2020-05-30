@@ -24,7 +24,13 @@ public:
   void bookHistograms(DQMStore::IBooker& ibooker, edm::Run const& iRun, edm::EventSetup const& iSetup) override;
   void analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) override;
 
+  struct ClusterMEs {
+    int nCluster;
+  };
+
 private:
+  MonitorElement* SimulatedXYPositionMap;
+
   edm::ParameterSet config_;
   edm::EDGetTokenT<Phase2TrackerCluster1DCollectionNew> clustersToken_;
   std::string geomType_;
