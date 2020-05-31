@@ -16,6 +16,9 @@
 #include <memory>
 #include "Validation/SiTrackerPhase2V/plugins/Phase2TrackerValidateCluster.h"
 
+#include "FWCore/Framework/interface/MakerMacros.h"
+#include "FWCore/Framework/interface/ESWatcher.h"
+#include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/ServiceRegistry/interface/Service.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
@@ -40,7 +43,7 @@
 //
 Phase2TrackerValidateCluster::Phase2TrackerValidateCluster(const edm::ParameterSet& iConfig)
     : config_(iConfig),
-      clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("src"))),
+      clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("ClusterSource"))),
       geomType_(config_.getParameter<std::string>("GeometryType"))
 
 {
@@ -130,10 +133,7 @@ void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker,
                                             Parameters.getParameter<double>("ymax"));
   else
     SimulatedXYPositionMap = nullptr;
-
-
-
-
   return;
 }
 
+DEFINE_FWK_MODULE(Phase2TrackerValidateCluster);

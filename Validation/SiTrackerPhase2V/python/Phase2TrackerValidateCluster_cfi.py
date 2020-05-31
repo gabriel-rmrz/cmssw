@@ -4,17 +4,21 @@ from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
 
 clusterValid = DQMEDAnalyzer('Phase2TrackerValidateCluster',
     Verbosity = cms.bool(False),
-    TopFolderName = cms.string("Ph2TkPixerDigi"),
+    TopFolderName = cms.string("TrackerPhase2Clusters"),
     PixelPlotFillingFlag =cms.bool(False),
     ### TODO: Look for the ClusterSources
+    #ClusterSource = cms.InputTag("TTClustersFromPhase2TrackerDigis"),
+    ClusterSource = cms.InputTag("siPhase2Clusters"),
+    #  "ClusterInclusive"   "HLT"
     GeometryType = cms.string('idealForDigi'),
     XYPositionMapH = cms.PSet(
-      Nxbins = cms.int32(1250),
-      xmin = cms.double(-1250.),
-      xmax = cms.double(1250.),
-      Nybins = cms.int32(1250),
-      ymin = cms.double(-1250.),
-      ymax = cms.double(1250.),
+      NxBins = cms.int32(2400),
+      xmin = cms.double(-120.),
+      xmax = cms.double(120.),
+      NyBins = cms.int32(2400),
+      ymin = cms.double(-120.),
+      ymax = cms.double(120.),
       switch = cms.bool(True)
       )
     )
+
