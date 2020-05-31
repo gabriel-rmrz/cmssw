@@ -29,10 +29,14 @@ public:
   };
 
 private:
+  MonitorElement* SimulatedZRPositionMap;
   MonitorElement* SimulatedXYPositionMap;
+  MonitorElement* SimulatedXYBarrelPositionMap;
+  MonitorElement* SimulatedXYEndCapPositionMap;
 
   edm::ParameterSet config_;
   edm::EDGetTokenT<Phase2TrackerCluster1DCollectionNew> clustersToken_;
+  bool catECasRings_;
   std::string geomType_;
 
 };

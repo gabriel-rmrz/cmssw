@@ -44,6 +44,7 @@
 Phase2TrackerValidateCluster::Phase2TrackerValidateCluster(const edm::ParameterSet& iConfig)
     : config_(iConfig),
       clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("ClusterSource"))),
+      catECasRings_(config_.getParameter<std::string>("ECasRings"))
       geomType_(config_.getParameter<std::string>("GeometryType"))
 
 {
@@ -76,11 +77,24 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
   }
   if(!geomHandle.isValid()) return;
   const TrackerGeometry* tkGeom = &(*geomHandle);
+
+  edm::ESHandle<TrackerTopology> tTopoHandle;
+  iSetup.get<TrackerTopologyRcd>().get(geomType_, geomHandle);
+  const TrackerTopology* tTopo = &(*geomHandle);
   
   for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusterHandle->begin(); DSVItr != clusterHandle->end(); ++DSVItr){
     // Getting the id of detector unit
     unsigned int rawid(DSVItr->detId());
     DetId detId(rawid);
+
+    // Getting the layer
+    unsigned int layer = (tTopo->side(detId) != 0) * 1000; 
+    if (!layer) {
+      layer += tTopo->layer(detId);
+    }
+    else {
+      layer += (catECasRings_ ? tTopo->tidRing(detId) * 10 : tTopo->layer(detId));
+    }
 
     // Getting the geometry of the detector unit
     const GeomDetUnit* geomDetUnit(tkGeom->idToDetUnit(detId));
@@ -90,11 +104,18 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
       Local3DPoint localPosCluster = geomDetUnit->topology().localPosition(mpCluster);
       Global3DPoint globalPosCluster = geomDetUnit->surface().toGlobal(localPosCluster);
 
-      std::cout << globalPosCluster << std::endl;
-      std::cout << "Hi" << std::endl;
+      if(SimulatedZRPositionMap)
+        SimulatedZRPositionMap->Fill(globalPosCluster.z(), globalPosCluster.perp());
 
       if(SimulatedXYPositionMap)
         SimulatedXYPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
+
+      if(fabs(layer) < 1000){
+        if(SimulatedXYBarrelPositionMap) SimulatedXYBarrelPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
+      } 
+      else {
+        if(SimulatedXYEndCapPositionMap) SimulatedXYEndCapPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
+      }
     }
 
   }
@@ -119,7 +140,22 @@ void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker,
   edm::LogInfo("Phase2TrackerValidateCluster") << " Booking Histograms in: " << folder_name.str();
   std::stringstream HistoName;
 
-  edm::ParameterSet Parameters = config_.getParameter<edm::ParameterSet>("XYPositionMapH");
+  edm::ParameterSet Parameters = config_.getParameter<edm::ParameterSet>("ZRPositionMapH");
+  HistoName.str("");
+  HistoName << "SimulatedZPosVsRPos";
+  if(Parameters.getParameter<bool>("switch"))
+    SimulatedZRPositionMap = ibooker.book2D(HistoName.str(),
+                                            HistoName.str(),
+                                            Parameters.getParameter<int32_t>("NxBins"),
+                                            Parameters.getParameter<double>("xmin"),
+                                            Parameters.getParameter<double>("xmax"),
+                                            Parameters.getParameter<int32_t>("NyBins"),
+                                            Parameters.getParameter<double>("ymin"),
+                                            Parameters.getParameter<double>("ymax"));
+  else
+    SimulatedZRPositionMap = nullptr;
+
+  Parameters = config_.getParameter<edm::ParameterSet>("XYPositionMapH");
   HistoName.str("");
   HistoName << "SimulatedXPosVsYPos";
   if(Parameters.getParameter<bool>("switch"))
@@ -133,6 +169,38 @@ void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker,
                                             Parameters.getParameter<double>("ymax"));
   else
     SimulatedXYPositionMap = nullptr;
+
+  Parameters = config_.getParameter<edm::ParameterSet>("XYBarrelPositionMapH");
+  HistoName.str("");
+  HistoName << "SimulatedXPosVsYPosBarrel";
+  if(Parameters.getParameter<bool>("switch"))
+    SimulatedXYBarrelPositionMap = ibooker.book2D(HistoName.str(),
+                                            HistoName.str(),
+                                            Parameters.getParameter<int32_t>("NxBins"),
+                                            Parameters.getParameter<double>("xmin"),
+                                            Parameters.getParameter<double>("xmax"),
+                                            Parameters.getParameter<int32_t>("NyBins"),
+                                            Parameters.getParameter<double>("ymin"),
+                                            Parameters.getParameter<double>("ymax"));
+  else
+    SimulatedXYBarrelPositionMap = nullptr;
+
+  Parameters = config_.getParameter<edm::ParameterSet>("XYEndCapPositionMapH");
+  HistoName.str("");
+  HistoName << "SimulatedXPosVsYPosEndCap";
+  if(Parameters.getParameter<bool>("switch"))
+    SimulatedXYEndCapPositionMap = ibooker.book2D(HistoName.str(),
+                                            HistoName.str(),
+                                            Parameters.getParameter<int32_t>("NxBins"),
+                                            Parameters.getParameter<double>("xmin"),
+                                            Parameters.getParameter<double>("xmax"),
+                                            Parameters.getParameter<int32_t>("NyBins"),
+                                            Parameters.getParameter<double>("ymin"),
+                                            Parameters.getParameter<double>("ymax"));
+  else
+    SimulatedXYEndCapPositionMap = nullptr;
+
+
   return;
 }
 
