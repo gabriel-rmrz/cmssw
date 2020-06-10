@@ -44,7 +44,7 @@
 Phase2TrackerValidateCluster::Phase2TrackerValidateCluster(const edm::ParameterSet& iConfig)
     : config_(iConfig),
       clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("ClusterSource"))),
-      catECasRings_(config_.getParameter<std::string>("ECasRings"))
+      catECasRings_(config_.getParameter<bool>("ECasRings")),
       geomType_(config_.getParameter<std::string>("GeometryType"))
 
 {
@@ -79,8 +79,8 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
   const TrackerGeometry* tkGeom = &(*geomHandle);
 
   edm::ESHandle<TrackerTopology> tTopoHandle;
-  iSetup.get<TrackerTopologyRcd>().get(geomType_, geomHandle);
-  const TrackerTopology* tTopo = &(*geomHandle);
+  iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
+  const TrackerTopology* tTopo = tTopoHandle.product();
   
   for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusterHandle->begin(); DSVItr != clusterHandle->end(); ++DSVItr){
     // Getting the id of detector unit

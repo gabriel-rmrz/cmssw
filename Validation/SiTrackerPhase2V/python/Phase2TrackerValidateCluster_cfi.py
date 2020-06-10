@@ -13,14 +13,14 @@ clusterValid = DQMEDAnalyzer('Phase2TrackerValidateCluster',
     ECasRings = cms.bool(True),
     GeometryType = cms.string('idealForDigi'),
     ZRPositionMapH = cms.PSet(
-      NxBins = cms.int32(2400),
-      xmin = cms.double(-120.),
-      xmax = cms.double(120.),
-      NyBins = cms.int32(6000),
-      ymin = cms.double(-300.),
-      ymax = cms.double(300.),
+      NxBins = cms.int32(6000),
+      xmin = cms.double(-300.),
+      xmax = cms.double(300.),
+      NyBins = cms.int32(1200),
+      ymin = cms.double(0.),
+      ymax = cms.double(120.),
       switch = cms.bool(True)
-      )
+      ),
     XYPositionMapH = cms.PSet(
       NxBins = cms.int32(2400),
       xmin = cms.double(-120.),
@@ -29,7 +29,7 @@ clusterValid = DQMEDAnalyzer('Phase2TrackerValidateCluster',
       ymin = cms.double(-120.),
       ymax = cms.double(120.),
       switch = cms.bool(True)
-      )
+      ),
     XYBarrelPositionMapH = cms.PSet(
       NxBins = cms.int32(2400),
       xmin = cms.double(-120.),
@@ -38,8 +38,8 @@ clusterValid = DQMEDAnalyzer('Phase2TrackerValidateCluster',
       ymin = cms.double(-120.),
       ymax = cms.double(120.),
       switch = cms.bool(True)
-      )
-    XYBarrelPositionMapH = cms.PSet(
+      ),
+    XYEndCapPositionMapH = cms.PSet(
       NxBins = cms.int32(2400),
       xmin = cms.double(-120.),
       xmax = cms.double(120.),
