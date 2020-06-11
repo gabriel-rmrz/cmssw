@@ -9,8 +9,8 @@ process.maxEvents = cms.untracked.PSet(
 process.load('Configuration.StandardSequences.Services_cff')
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.EventContent.EventContent_cff')
-process.load('Configuration.Geometry.GeometryExtended2023D17Reco_cff')
-#process.load('Configuration.Geometry.GeometryRecoDB_cff')
+#process.load('Configuration.Geometry.GeometryExtended2023D17Reco_cff')
+process.load('Configuration.Geometry.GeometryRecoDB_cff')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 process.load('Configuration.StandardSequences.EndOfProcess_cff')
@@ -24,7 +24,8 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 # list of files
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
-      'file:step2.root'
+      #'file:step2.root'
+      'file:051C2F4A-56AC-3943-BA4D-3DF295E026DF.root'
       )
     )
 
@@ -49,6 +50,7 @@ process.DQMoutput = cms.OutputModule("PoolOutputModule",
 process.load('Validation.SiTrackerPhase2V.Phase2TrackerValidateCluster_cff')
 # TODO: Write something analogus for clusters?? I think is not needed for the moment
 #process.digiana_seq = cms.Sequence(process.pixDigiValid * process.otDigiValid)
+process.clusterana_seq = cms.Sequence(process.clusterValid)
 
 process.load('DQMServices.Components.DQMEventInfo_cfi')
 process.dqmEnv.subSystemFolder = cms.untracked.string('Ph2TkCluster')
@@ -59,5 +61,4 @@ process.dqm_comm =cms.Sequence(process.dqmEnv)
 process.endjob_step = cms.EndPath(process.endOfProcess)
 process.DQMoutput_step = cms.EndPath(process.DQMoutput)
 
-#process.p = cms.Path(process.digiana_seq * process.dqm_comm)
-process.p = cms.Path(process.dqm_comm)
+process.p = cms.Path(process.clusterana_seq * process.dqm_comm)

@@ -81,6 +81,8 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
   edm::ESHandle<TrackerTopology> tTopoHandle;
   iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
   const TrackerTopology* tTopo = tTopoHandle.product();
+
+  std::cout << "Hi" << std::endl;
   
   for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusterHandle->begin(); DSVItr != clusterHandle->end(); ++DSVItr){
     // Getting the id of detector unit
