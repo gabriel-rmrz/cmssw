@@ -15,7 +15,8 @@ process.maxEvents = cms.untracked.PSet(
 process.load('Configuration.StandardSequences.Services_cff')
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.EventContent.EventContent_cff')
-process.load('Configuration.Geometry.GeometryExtended2023D17Reco_cff')
+#process.load('Configuration.Geometry.GeometryExtended2023D17Reco_cff')
+process.load('Configuration.Geometry.GeometryRecoDB_cff')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 process.load('Configuration.StandardSequences.EndOfProcess_cff')
@@ -27,7 +28,8 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 
 process.source = cms.Source("PoolSource",
     fileNames =  cms.untracked.vstring(
-        'file:step2_DIGI.root'
+        #'file:step2_DIGI.root'
+        'file:051C2F4A-56AC-3943-BA4D-3DF295E026DF.root'
       )
 )
 # Production Info

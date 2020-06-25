@@ -14,6 +14,7 @@
 #include "DataFormats/DetId/interface/DetId.h"
 
 #include "DataFormats/Phase2TrackerCluster/interface/Phase2TrackerCluster1D.h"
+#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 
 // DQM Histograms
 
@@ -26,6 +27,7 @@ public:
 
   struct ClusterMEs {
     int nCluster;
+    MonitorElement* ZRPositionMap;
   };
 
 private:
@@ -34,10 +36,18 @@ private:
   MonitorElement* SimulatedXYBarrelPositionMap;
   MonitorElement* SimulatedXYEndCapPositionMap;
 
+
+  void bookLayerHistos(DQMStore::IBooker& ibooker, unsigned int det_it, const TrackerTopology* tTopo, bool flag);
+
+  std::map<unsigned int, ClusterMEs> layerMEs;
+
   edm::ParameterSet config_;
-  edm::EDGetTokenT<Phase2TrackerCluster1DCollectionNew> clustersToken_;
+  bool pixelFlag_;
   bool catECasRings_;
   std::string geomType_;
+
+  edm::EDGetTokenT<Phase2TrackerCluster1DCollectionNew> clustersToken_;
+  edm::ESHandle<TrackerTopology> tTopoHandle_;
 
 };
 #endif

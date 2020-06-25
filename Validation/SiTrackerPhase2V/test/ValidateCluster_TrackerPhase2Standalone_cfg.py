@@ -3,7 +3,7 @@ import FWCore.ParameterSet.Config as cms
 from Configuration.Eras.Era_Phase2_cff import Phase2
 process = cms.Process('clusterValTest', Phase2)
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(-1)
+    input = cms.untracked.int32(1)
     )
 
 process.load('Configuration.StandardSequences.Services_cff')

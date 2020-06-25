@@ -13,6 +13,12 @@
 // Date: May 23, 2020
 //
 // system include files
+//#define DEBUG 
+
+#ifdef DEBUG
+#include <bitset>
+#endif
+
 #include <memory>
 #include "Validation/SiTrackerPhase2V/plugins/Phase2TrackerValidateCluster.h"
 
@@ -33,7 +39,6 @@
 #include "DataFormats/Common/interface/DetSetVectorNew.h"
 #include "DataFormats/Common/interface/DetSetVector.h"
 
-#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 
 // DQM Histograming
 #include "DQMServices/Core/interface/MonitorElement.h"
@@ -41,11 +46,13 @@
 //
 // constructors
 //
+
 Phase2TrackerValidateCluster::Phase2TrackerValidateCluster(const edm::ParameterSet& iConfig)
     : config_(iConfig),
-      clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("ClusterSource"))),
+      pixelFlag_(config_.getParameter<bool>("PixelPlotFillingFlag")),
       catECasRings_(config_.getParameter<bool>("ECasRings")),
-      geomType_(config_.getParameter<std::string>("GeometryType"))
+      geomType_(config_.getParameter<std::string>("GeometryType")),
+      clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("ClusterSource")))
 
 {
   edm::LogInfo("Phase2TrackerValidateCluster") << ">>> Construct Phase2TrackerValidateCluster ";
@@ -82,7 +89,6 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
   iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
   const TrackerTopology* tTopo = tTopoHandle.product();
 
-  std::cout << "Hi" << std::endl;
   
   for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusterHandle->begin(); DSVItr != clusterHandle->end(); ++DSVItr){
     // Getting the id of detector unit
@@ -91,12 +97,22 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
 
     // Getting the layer
     unsigned int layer = (tTopo->side(detId) != 0) * 1000; 
+#ifdef DEBUG
+    std::cout << "Side: " << (tTopo->side(detId) != 0) <<std::endl;
+    //std::bitset<25> x(detId);
+    //std::cout << "DetId: " << x <<std::endl;
+#endif
     if (!layer) {
       layer += tTopo->layer(detId);
     }
     else {
       layer += (catECasRings_ ? tTopo->tidRing(detId) * 10 : tTopo->layer(detId));
     }
+#ifdef DEBUG
+    std::cout << "Layer modified: " << layer << std::endl;
+    std::cout << "tTopo->tidRing(detId)*10: " << tTopo->tidRing(detId) * 10 << std::endl;
+    std::cout << "tTopo->layer(detId): " << tTopo->layer(detId) << std::endl;
+#endif
 
     // Getting the geometry of the detector unit
     const GeomDetUnit* geomDetUnit(tkGeom->idToDetUnit(detId));
@@ -129,8 +145,8 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
 // -- Book Histograms
 //
 void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker, 
-    edm::Run const& iRun, 
-    edm::EventSetup const& iSetup){
+                                                  edm::Run const& iRun, 
+                                                  edm::EventSetup const& iSetup){
   std::string top_folder = config_.getParameter<std::string>("TopFolderName");
   std::stringstream folder_name;
 
@@ -202,8 +218,109 @@ void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker,
   else
     SimulatedXYEndCapPositionMap = nullptr;
 
+  edm::ESWatcher<TrackerDigiGeometryRecord> theTkDigiGeomWatcher;
 
+  iSetup.get<TrackerTopologyRcd>().get(tTopoHandle_);
+  const TrackerTopology* const tTopo = tTopoHandle_.product();
+  if (theTkDigiGeomWatcher.check(iSetup)) {
+    edm::ESHandle<TrackerGeometry> geom_handle;
+    iSetup.get<TrackerDigiGeometryRecord>().get(geomType_, geom_handle);
+    const TrackerGeometry* tGeom = geom_handle.product();
+
+    for (auto const& det_u : tGeom->detUnits()) {
+      unsigned int detId_raw = det_u->geographicalId().rawId();
+      bookLayerHistos(ibooker, detId_raw, tTopo, pixelFlag_);
+    }    
+  }
   return;
 }
+void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
+                                                   unsigned int det_id,
+                                                   const TrackerTopology* tTopo,
+                                                   bool flag) {
+  int layer;
+  int ring = 0;
+  if(flag){
+    layer = tTopo->getITPixelLayerNumber(det_id);
+  }
+  else {
+    layer = tTopo->getOTLayerNumber(det_id);
+    ring = tTopo->tidRing(det_id);
+  }
+
+  if(layer < 0)
+    return;
+  // This is to include disks 1 and 2; and 3, 4 and 5 disk in only one histogram
+  int layers = layer;
+  std::string idiscs;
+
+  int side = layer / 100;
+  if(layer>100){
+    if((layer%100) < 3){
+      layers = 12000 + 10*ring + side; // meaning that the disk 1 and 2 will be filled togehter
+      idiscs = "1_2";
+    } else if((layer%100) < 6){
+      layers = 345000 + 10*ring + side; // disks 3, 4 and 5 will be filled together
+      idiscs = "3_4_5";
+    }
+  }
+
+
+  std::map<uint32_t, ClusterMEs>::iterator pos = layerMEs.find(layers);
+
+  if(pos == layerMEs.end()){
+    std::string top_folder = config_.getParameter<std::string>("TopFolderName");
+    std::stringstream folder_name;
+
+    std::ostringstream fname1, fname2, tag;
+    if (layer < 100) {
+      fname1 << "Barrel";
+      fname2 << "Layer_" << layer;
+    } else {
+      //int side = layer / 100;
+      //int idisc = layer - side * 100;
+      fname1 << "EndCap_Side_" << side;
+      fname2 << "Discs_" << idiscs << "_ring_" << ring;
+#ifdef DEBUG
+      std::cout << "---- ring: " << ring << std::endl;
+      std::cout << "---- fname2: " << fname2.str() << std::endl;
+      std::cout << "---- disk: " << idisc << std::endl;
+#endif
+    }
+    ibooker.cd();
+    folder_name << top_folder << "/"
+                << "ClusterMonitor"
+                << "/" << fname1.str()
+                << "/" << fname2.str();
+
+    edm::LogInfo("Phase2TrackerValidateDigi") << " Booking Histograms in: " << folder_name.str();
+
+    ibooker.setCurrentFolder(folder_name.str());
+
+    std::ostringstream HistoName;
+
+    ClusterMEs local_mes;
+    edm::ParameterSet Parameters = config_.getParameter<edm::ParameterSet>("ZRPositionMapH");
+    HistoName.str("");
+    HistoName << "ZPosVsRPos";
+    if(Parameters.getParameter<bool>("switch"))
+      local_mes.ZRPositionMap = ibooker.book2D(HistoName.str(),
+                                              HistoName.str(),
+                                              Parameters.getParameter<int32_t>("NxBins"),
+                                              Parameters.getParameter<double>("xmin"),
+                                              Parameters.getParameter<double>("xmax"),
+                                              Parameters.getParameter<int32_t>("NyBins"),
+                                              Parameters.getParameter<double>("ymin"),
+                                              Parameters.getParameter<double>("ymax"));
+    else
+      local_mes.ZRPositionMap = nullptr;
+    local_mes.nCluster = 1;
+    layerMEs.insert(std::make_pair(layers, local_mes));
+
+  }
+
+}
+
+
 
 DEFINE_FWK_MODULE(Phase2TrackerValidateCluster);
