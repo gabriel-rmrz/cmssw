@@ -47,6 +47,18 @@ clusterValid = DQMEDAnalyzer('Phase2TrackerValidateCluster',
       ymin = cms.double(-120.),
       ymax = cms.double(120.),
       switch = cms.bool(True)
+      ),
+    ClusterSize = cms.PSet(
+      NxBins = cms.int32(31),
+      xmin = cms.double(-0.5),
+      xmax = cms.double(30.5),
+      switch = cms.bool(True)
+      ),
+    ClusterCharge = cms.PSet(
+      NxBins = cms.int32(31),
+      xmin = cms.double(-0.5),
+      xmax = cms.double(30.5),
+      switch = cms.bool(True)
       )
     )
 

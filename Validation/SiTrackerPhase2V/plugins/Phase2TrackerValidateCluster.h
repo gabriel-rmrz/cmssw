@@ -26,8 +26,10 @@ public:
   void analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) override;
 
   struct ClusterMEs {
-    int nCluster;
+    uint32_t nCluster;
     MonitorElement* ZRPositionMap;
+    MonitorElement* ClusterSize;
+    MonitorElement* ClusterCharge;
   };
 
 private:
@@ -37,9 +39,10 @@ private:
   MonitorElement* SimulatedXYEndCapPositionMap;
 
 
-  void bookLayerHistos(DQMStore::IBooker& ibooker, unsigned int det_it, const TrackerTopology* tTopo, bool flag);
+  void bookLayerHistos(DQMStore::IBooker& ibooker, uint32_t det_it, const TrackerTopology* tTopo, bool flag);
+  uint32_t getHistoId(uint32_t det_id, const TrackerTopology* tTopo, bool flag); 
 
-  std::map<unsigned int, ClusterMEs> layerMEs;
+  std::map<uint32_t, ClusterMEs> layerMEs;
 
   edm::ParameterSet config_;
   bool pixelFlag_;

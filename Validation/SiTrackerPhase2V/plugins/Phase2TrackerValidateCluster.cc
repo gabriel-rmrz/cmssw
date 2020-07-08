@@ -92,22 +92,21 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
   
   for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusterHandle->begin(); DSVItr != clusterHandle->end(); ++DSVItr){
     // Getting the id of detector unit
-    unsigned int rawid(DSVItr->detId());
+    uint32_t rawid(DSVItr->detId());
     DetId detId(rawid);
 
     // Getting the layer
+    uint32_t histo_id = getHistoId(detId, tTopo, pixelFlag_);
+    /*
     unsigned int layer = (tTopo->side(detId) != 0) * 1000; 
-#ifdef DEBUG
-    std::cout << "Side: " << (tTopo->side(detId) != 0) <<std::endl;
-    //std::bitset<25> x(detId);
-    //std::cout << "DetId: " << x <<std::endl;
-#endif
     if (!layer) {
       layer += tTopo->layer(detId);
     }
     else {
       layer += (catECasRings_ ? tTopo->tidRing(detId) * 10 : tTopo->layer(detId));
     }
+    */
+
 #ifdef DEBUG
     std::cout << "Layer modified: " << layer << std::endl;
     std::cout << "tTopo->tidRing(detId)*10: " << tTopo->tidRing(detId) * 10 << std::endl;
@@ -118,6 +117,7 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
     const GeomDetUnit* geomDetUnit(tkGeom->idToDetUnit(detId));
     if(!geomDetUnit) continue;
     for(edmNew::DetSet<Phase2TrackerCluster1D>::const_iterator clusterItr = DSVItr->begin(); clusterItr != DSVItr->end(); ++clusterItr){
+
       MeasurementPoint mpCluster(clusterItr->center(), clusterItr->column() + 0.5);
       Local3DPoint localPosCluster = geomDetUnit->topology().localPosition(mpCluster);
       Global3DPoint globalPosCluster = geomDetUnit->surface().toGlobal(localPosCluster);
@@ -128,12 +128,18 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
       if(SimulatedXYPositionMap)
         SimulatedXYPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
 
-      if(fabs(layer) < 1000){
+      if(fabs(histo_id) < 1000){
         if(SimulatedXYBarrelPositionMap) SimulatedXYBarrelPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
       } 
       else {
         if(SimulatedXYEndCapPositionMap) SimulatedXYEndCapPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
       }
+      auto pos = layerMEs.find(histo_id);
+      if (pos == layerMEs.end())
+        continue;
+      ClusterMEs& local_mes = pos->second;
+      if(local_mes.ClusterSize)
+        local_mes.ClusterSize->Fill(clusterItr->size());
     }
 
   }
@@ -228,59 +234,47 @@ void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker,
     const TrackerGeometry* tGeom = geom_handle.product();
 
     for (auto const& det_u : tGeom->detUnits()) {
-      unsigned int detId_raw = det_u->geographicalId().rawId();
+      uint32_t detId_raw = det_u->geographicalId().rawId();
       bookLayerHistos(ibooker, detId_raw, tTopo, pixelFlag_);
     }    
   }
   return;
 }
 void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
-                                                   unsigned int det_id,
+                                                   uint32_t det_id,
                                                    const TrackerTopology* tTopo,
                                                    bool flag) {
-  int layer;
-  int ring = 0;
-  if(flag){
-    layer = tTopo->getITPixelLayerNumber(det_id);
-  }
-  else {
-    layer = tTopo->getOTLayerNumber(det_id);
-    ring = tTopo->tidRing(det_id);
-  }
-
-  if(layer < 0)
+  int histo_id = getHistoId(det_id, tTopo, flag);
+  if(histo_id < 0){
+    edm::LogInfo("Phase2TrackerValidateCluster") << ">>>> Invalid histo_id ";
     return;
-  // This is to include disks 1 and 2; and 3, 4 and 5 disk in only one histogram
-  int layers = layer;
-  std::string idiscs;
-
-  int side = layer / 100;
-  if(layer>100){
-    if((layer%100) < 3){
-      layers = 12000 + 10*ring + side; // meaning that the disk 1 and 2 will be filled togehter
-      idiscs = "1_2";
-    } else if((layer%100) < 6){
-      layers = 345000 + 10*ring + side; // disks 3, 4 and 5 will be filled together
-      idiscs = "3_4_5";
-    }
   }
 
-
-  std::map<uint32_t, ClusterMEs>::iterator pos = layerMEs.find(layers);
+  std::map<uint32_t, ClusterMEs>::iterator pos = layerMEs.find(histo_id);
 
   if(pos == layerMEs.end()){
+    std::cout << "histo_id: " << histo_id << std::endl;
+
+    
     std::string top_folder = config_.getParameter<std::string>("TopFolderName");
     std::stringstream folder_name;
 
     std::ostringstream fname1, fname2, tag;
-    if (layer < 100) {
+    if (histo_id < 1000) {
       fname1 << "Barrel";
-      fname2 << "Layer_" << layer;
+      fname2 << "Layer_" << histo_id;
     } else {
-      //int side = layer / 100;
-      //int idisc = layer - side * 100;
+      std::string disc_label;
+      uint32_t side = histo_id % 10;
+      uint32_t idisc = histo_id / 1000;
+      int ring = (histo_id - 1000*idisc) / 10;
+
       fname1 << "EndCap_Side_" << side;
-      fname2 << "Discs_" << idiscs << "_ring_" << ring;
+      //int discs_set = histo_id / 1000;
+      //int ring = (histo_id - 1000*discs_set) / 10;
+      //disc_label = ((discs_set > 1) ? "3_4_5": "1_2");
+      //fname2 << "Discs_" << disc_label << "_ring_" << ring;
+      fname2 << "Discs_" << idisc << "_ring_" << ring;
 #ifdef DEBUG
       std::cout << "---- ring: " << ring << std::endl;
       std::cout << "---- fname2: " << fname2.str() << std::endl;
@@ -314,13 +308,75 @@ void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
                                               Parameters.getParameter<double>("ymax"));
     else
       local_mes.ZRPositionMap = nullptr;
+
+    Parameters = config_.getParameter<edm::ParameterSet>("ClusterSize");
+    HistoName.str("");
+    HistoName << "ClusterSize";
+    if(Parameters.getParameter<bool>("switch"))
+      local_mes.ClusterSize = ibooker.book1D(HistoName.str(),
+                                              HistoName.str(),
+                                              Parameters.getParameter<int32_t>("NxBins"),
+                                              Parameters.getParameter<double>("xmin"),
+                                              Parameters.getParameter<double>("xmax"));
+    else
+      local_mes.ClusterSize = nullptr;
+
+    Parameters = config_.getParameter<edm::ParameterSet>("ClusterCharge");
+    HistoName.str("");
+    HistoName << "ClusterCharge";
+    if(Parameters.getParameter<bool>("switch"))
+      local_mes.ClusterCharge = ibooker.book1D(HistoName.str(),
+                                              HistoName.str(),
+                                              Parameters.getParameter<int32_t>("NxBins"),
+                                              Parameters.getParameter<double>("xmin"),
+                                              Parameters.getParameter<double>("xmax"));
+    else
+      local_mes.ClusterCharge = nullptr;
+    
     local_mes.nCluster = 1;
-    layerMEs.insert(std::make_pair(layers, local_mes));
+    layerMEs.insert(std::make_pair(histo_id, local_mes));
 
   }
 
 }
 
+uint32_t Phase2TrackerValidateCluster::getHistoId(uint32_t det_id,
+                                                 const TrackerTopology* tTopo,
+                                                 bool flag) {
+  int layer;
+  int ring = 0;
+  if(flag){
+    layer = tTopo->getITPixelLayerNumber(det_id);
+  }
+  else {
+    layer = tTopo->getOTLayerNumber(det_id);
+    ring = tTopo->tidRing(det_id);
+  }
+
+  if(layer < 0)
+    return -1;
+  
+  // This is to include disks 1 and 2; and 3, 4 and 5 disk in only one histogram
+  uint32_t side = layer / 100;
+  uint32_t histo_id = layer;
+  std::string idiscs;
+
+  //int side = layer / 100;
+  histo_id = ((histo_id < 100) ? layer : (1000*(layer % 100) + 10*ring + side));
+  //histo_id = ((histo_id < 100) ? layer : (1000*(layer % 100) + side));
+  /*
+  if(histo_id>100){
+    if((histo_id%100) < 3){
+      histo_id = 1000 + 10*ring + side; // meaning that the disk 1 and 2 will be filled togehter
+      //idiscs = "1_2";
+    } else if((histo_id%100) < 6){
+      histo_id = 2000 + 10*ring + side; // disks 3, 4 and 5 will be filled together
+      //idiscs = "3_4_5";
+    }
+  }
+  */
+  return histo_id;
+}
 
 
 DEFINE_FWK_MODULE(Phase2TrackerValidateCluster);
