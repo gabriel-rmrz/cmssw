@@ -61,4 +61,5 @@ process.dqm_comm =cms.Sequence(process.dqmEnv)
 process.endjob_step = cms.EndPath(process.endOfProcess)
 process.DQMoutput_step = cms.EndPath(process.DQMoutput)
 
-process.p = cms.Path(process.clusterana_seq * process.dqm_comm)
+#process.p = cms.Path(process.clusterana_seq * process.dqm_comm)
+process.p = cms.Path(process.clusterana_seq)
