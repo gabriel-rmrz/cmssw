@@ -10,7 +10,8 @@ process.load('Configuration.StandardSequences.Services_cff')
 process.load('FWCore.MessageService.MessageLogger_cfi')
 process.load('Configuration.EventContent.EventContent_cff')
 #process.load('Configuration.Geometry.GeometryExtended2023D17Reco_cff')
-process.load('Configuration.Geometry.GeometryRecoDB_cff')
+process.load('Configuration.Geometry.GeometryExtended2026D56Reco_cff')
+#process.load('Configuration.Geometry.GeometryRecoDB_cff')
 process.load('Configuration.StandardSequences.MagneticField_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 process.load('Configuration.StandardSequences.EndOfProcess_cff')
@@ -48,9 +49,8 @@ process.DQMoutput = cms.OutputModule("PoolOutputModule",
     )
 
 process.load('Validation.SiTrackerPhase2V.Phase2TrackerValidateCluster_cff')
-# TODO: Write something analogus for clusters?? I think is not needed for the moment
-#process.digiana_seq = cms.Sequence(process.pixDigiValid * process.otDigiValid)
-process.clusterana_seq = cms.Sequence(process.clusterValid)
+process.clusterana_seq = cms.Sequence(process.otClusterValid * process.pixClusterValid)
+#process.clusterana_seq = cms.Sequence(process.pixClusterValid)
 
 process.load('DQMServices.Components.DQMEventInfo_cfi')
 process.dqmEnv.subSystemFolder = cms.untracked.string('Ph2TkCluster')

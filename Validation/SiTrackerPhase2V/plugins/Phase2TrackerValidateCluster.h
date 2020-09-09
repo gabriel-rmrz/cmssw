@@ -13,10 +13,12 @@
 #include "FWCore/Framework/interface/ESHandle.h"
 #include "DataFormats/DetId/interface/DetId.h"
 
+
 #include "DataFormats/Phase2TrackerCluster/interface/Phase2TrackerCluster1D.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "DataFormats/Common/interface/DetSetVectorNew.h"
 #include "DataFormats/Common/interface/DetSetVector.h"
+#include "DataFormats/SiPixelCluster/interface/SiPixelCluster.h"
 
 #include "SimDataFormats/TrackerDigiSimLink/interface/PixelDigiSimLink.h"
 #include "SimDataFormats/Track/interface/SimTrackContainer.h"
@@ -35,6 +37,7 @@ public:
   void bookHistograms(DQMStore::IBooker& ibooker, edm::Run const& iRun, edm::EventSetup const& iSetup) override;
   void analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) override;
   //uint32_t getHistoId(uint32_t det_id, const TrackerTopology* tTopo, bool flag); 
+  bool isPrimary(const SimTrack& simTrk, const PSimHit* simHit);
   std::string getHistoId(uint32_t det_id, const TrackerTopology* tTopo, bool flag); 
   std::vector<unsigned int> getSimTrackId(const edm::Handle<edm::DetSetVector<PixelDigiSimLink> >& pixelSimLinks, const DetId& detId, unsigned int channel);
 
@@ -82,13 +85,17 @@ private:
   bool catECasRings_;
   double simtrackminpt_;
   std::string geomType_;
+  std::vector<edm::EDGetTokenT<edm::PSimHitContainer> > simHitTokens_;
 
-  edm::EDGetTokenT<edm::DetSetVector<PixelDigiSimLink>> simLinksToken_;
+  edm::EDGetTokenT<edm::DetSetVector<PixelDigiSimLink>> simOTLinksToken_;
+  edm::EDGetTokenT<edm::DetSetVector<PixelDigiSimLink>> simITLinksToken_;
   edm::EDGetTokenT<edm::SimTrackContainer> simTracksToken_;
   edm::EDGetTokenT<Phase2TrackerCluster1DCollectionNew> clustersToken_;
+  edm::EDGetTokenT<edmNew::DetSetVector<SiPixelCluster>> itPixelClusterToken_;
+  std::vector<edm::InputTag> pSimHitSrc_;
   edm::ESHandle<TrackerTopology> tTopoHandle_;
-  edm::EDGetTokenT<edm::PSimHitContainer> simHitsBToken_;
-  edm::EDGetTokenT<edm::PSimHitContainer> simHitsEToken_;
+  //edm::EDGetTokenT<edm::PSimHitContainer> simHitsBToken_;
+  //edm::EDGetTokenT<edm::PSimHitContainer> simHitsEToken_;
 
 };
 #endif
