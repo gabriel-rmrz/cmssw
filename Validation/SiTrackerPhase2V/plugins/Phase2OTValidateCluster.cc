@@ -1,9 +1,9 @@
 // -*- C++ -*-
 //bookLayer
-// Package:    Phase2TrackerValidateCluster
-// Class:      Phase2TrackerValidateCluster
+// Package:    Phase2OTValidateCluster
+// Class:      Phase2OTValidateCluster
 //
-/**\class Phase2TrackerValidateCluster Phase2TrackerValidateCluster.cc 
+/**\class Phase2OTValidateCluster Phase2OTValidateCluster.cc 
 
  Description: Validation plots tracker clusters. 
 
@@ -20,7 +20,7 @@
 #endif
 
 #include <memory>
-#include "Validation/SiTrackerPhase2V/plugins/Phase2TrackerValidateCluster.h"
+#include "Validation/SiTrackerPhase2V/plugins/Phase2OTValidateCluster.h"
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 #include "FWCore/Framework/interface/ESWatcher.h"
@@ -49,54 +49,43 @@
 // constructors
 //
 
-Phase2TrackerValidateCluster::Phase2TrackerValidateCluster(const edm::ParameterSet& iConfig)
+Phase2OTValidateCluster::Phase2OTValidateCluster(const edm::ParameterSet& iConfig)
     : config_(iConfig),
       pixelFlag_(config_.getParameter<bool>("PixelPlotFillingFlag")),
       catECasRings_(config_.getParameter<bool>("ECasRings")),
       simtrackminpt_(config_.getParameter<double>("SimTrackMinPt")),
       geomType_(config_.getParameter<std::string>("GeometryType")),
-      //itPixelClusterSrc_(config_.getParameter<edm::InputTag>("InnerPixelClusterSource")),
       simOTLinksToken_(consumes<edm::DetSetVector<PixelDigiSimLink>>(config_.getParameter<edm::InputTag>("OuterTrackerDigiSimLinkSource"))),
-      simITLinksToken_(consumes<edm::DetSetVector<PixelDigiSimLink>>(config_.getParameter<edm::InputTag>("InnerPixelDigiSimLinkSource"))),
       simTracksToken_(consumes<edm::SimTrackContainer>(config_.getParameter<edm::InputTag>("simtracks"))),
       clustersToken_(consumes<Phase2TrackerCluster1DCollectionNew>(config_.getParameter<edm::InputTag>("ClusterSource"))),
-      itPixelClusterToken_(consumes<edmNew::DetSetVector<SiPixelCluster>>(config_.getParameter<edm::InputTag>("InnerPixelClusterSource"))),
       pSimHitSrc_(config_.getParameter<std::vector<edm::InputTag> >("PSimHitSource"))
 {
-  edm::LogInfo("Phase2TrackerValidateCluster") << ">>> Construct Phase2TrackerValidateCluster ";
+  edm::LogInfo("Phase2OTValidateCluster") << ">>> Construct Phase2OTValidateCluster ";
   for (const auto& itag : pSimHitSrc_)
         simHitTokens_.push_back(consumes<edm::PSimHitContainer>(itag));
 }
     
-Phase2TrackerValidateCluster::~Phase2TrackerValidateCluster() {
+Phase2OTValidateCluster::~Phase2OTValidateCluster() {
   // do anything here that needs to be done at desctruction time
   // (e.g. close files, deallocate resources etc.)
-  edm::LogInfo("Phase2TrackerValidateCluster") << ">>> Destroy Phase2TrackerValidateCluster ";
+  edm::LogInfo("Phase2OTValidateCluster") << ">>> Destroy Phase2OTValidateCluster ";
 }
 //
 // -- DQM Begin Run
 //
 // -- Analyze
 //
-void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
+void Phase2OTValidateCluster::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
 
   // Getting the clusters
   edm::Handle<Phase2TrackerCluster1DCollectionNew> clusterHandle;
   iEvent.getByToken(clustersToken_, clusterHandle);
 
-  edm::Handle<edmNew::DetSetVector<SiPixelCluster>> itPixelClusterHandle;
-  iEvent.getByToken(itPixelClusterToken_, itPixelClusterHandle);
-
   // Getting PixelDigiSimLinks
   edm::Handle<edm::DetSetVector<PixelDigiSimLink> > pixelSimLinksHandle;
 
-  if(pixelFlag_){
-    iEvent.getByToken(simITLinksToken_, pixelSimLinksHandle);
-  } else {
-    iEvent.getByToken(simOTLinksToken_, pixelSimLinksHandle);
-  }
-
+  iEvent.getByToken(simOTLinksToken_, pixelSimLinksHandle);
 
   // Get the SimTracks
   edm::Handle<edm::SimTrackContainer> simTracksRaw;
@@ -130,397 +119,175 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
   std::map<std::string, unsigned int> nPrimarySimHits[3];
   std::map<std::string, unsigned int> nOtherSimHits[3];
   
-  if(pixelFlag_){
-
-    for(edmNew::DetSetVector<SiPixelCluster>::const_iterator DSVItr = itPixelClusterHandle->begin(); DSVItr != itPixelClusterHandle->end(); ++DSVItr){
-      // Getting the id of detector unit
-      uint32_t rawid(DSVItr->detId());
-      //uint32_t rawid(DSVItr->id());
-      DetId detId(rawid);
+  for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusterHandle->begin(); DSVItr != clusterHandle->end(); ++DSVItr){
+    // Getting the id of detector unit
+    uint32_t rawid(DSVItr->detId());
+    DetId detId(rawid);
 
 
-      ///////////////////////////
-      // Getting the geometry of the detector unit
-      ///////////////////////////
-      if (rawid == 346309796)
-        continue;
-      std::cout << "Here 1" << std::endl;
-      std::cout << "rawId" << rawid << std::endl;
-
-      const GeomDet* geomDet = tkGeom->idToDet(detId);
-      if(!geomDet)
-        continue;
-      const GeomDetUnit* geomDetUnit(tkGeom->idToDetUnit(detId));
-      std::cout << "Here 2" << std::endl;
-      if(!geomDetUnit) continue;
+    ///////////////////////////
+    // Getting the geometry of the detector unit
+    ///////////////////////////
+    const GeomDetUnit* geomDetUnit(tkGeom->idToDetUnit(detId));
+    if(!geomDetUnit) continue;
 
 
-      TrackerGeometry::ModuleType mType = tkGeom->getDetectorType(detId);
-      unsigned int det = 0;
+    TrackerGeometry::ModuleType mType = tkGeom->getDetectorType(detId);
+    unsigned int det = 0;
+    if (mType == TrackerGeometry::ModuleType::Ph2PSP) {
+      det = 1;
+    } else if (mType == TrackerGeometry::ModuleType::Ph2PSS || mType == TrackerGeometry::ModuleType::Ph2SS) {
+      det = 2;
+    } else {
+      std::cout << "UNKNOWN DETECTOR TYPE!" << std::endl;
+    }
 
-      if(pixelFlag_){
-        if (mType == TrackerGeometry::ModuleType::Ph2PXB || mType == TrackerGeometry::ModuleType::Ph2PXF) {
-          det = 1;
-          //std::cout << "Pixel" << std::endl;
-        } else {
-          std::cout << "UNKNOWN DETECTOR TYPE!" << std::endl;
-        }
-      } else {
-        if (mType == TrackerGeometry::ModuleType::Ph2PSP) {
-          //std::cout << "Ph2PSP" << std::endl;
-          det = 1;
-        } else if (mType == TrackerGeometry::ModuleType::Ph2PSS || mType == TrackerGeometry::ModuleType::Ph2SS) {
-          //std::cout << "Ph2PSS" << std::endl;
-          det = 2;
-        } else {
-          std::cout << "UNKNOWN DETECTOR TYPE!" << std::endl;
-        }
-      }
-      det++;
+    std::string folderkey = getHistoId(detId, tTopo);
 
-      std::string folderkey = getHistoId(detId, tTopo, pixelFlag_);
-
-      // initialize the nhit counters if they don't exist for this layer
-      auto nhitit(nClusters[det].find(folderkey));
-      if (nhitit == nClusters[det].end()) {
-        nClusters[det].emplace(folderkey, 0);
-        nPrimarySimHits[det].emplace(folderkey, 0);
-        nOtherSimHits[det].emplace(folderkey, 0);
-      }
+    // initialize the nhit counters if they don't exist for this layer
+    auto nhitit(nClusters[det].find(folderkey));
+    if (nhitit == nClusters[det].end()) {
+      nClusters[det].emplace(folderkey, 0);
+      nPrimarySimHits[det].emplace(folderkey, 0);
+      nOtherSimHits[det].emplace(folderkey, 0);
+    }
 
 
-      for(edmNew::DetSet<SiPixelCluster>::const_iterator clusterItr = DSVItr->begin(); clusterItr != DSVItr->end(); ++clusterItr){
+    for(edmNew::DetSet<Phase2TrackerCluster1D>::const_iterator clusterItr = DSVItr->begin(); clusterItr != DSVItr->end(); ++clusterItr){
 
-        MeasurementPoint mpCluster(clusterItr->x(), clusterItr->y());
-        Local3DPoint localPosCluster = geomDetUnit->topology().localPosition(mpCluster);
-        Global3DPoint globalPosCluster = geomDetUnit->surface().toGlobal(localPosCluster);
-        unsigned int layer;
-        if(pixelFlag_){
-          layer = tTopo->getITPixelLayerNumber(detId);
-        } else {
-          layer = tTopo->getOTLayerNumber(detId);
-        }
+      MeasurementPoint mpCluster(clusterItr->center(), clusterItr->column() + 0.5);
+      Local3DPoint localPosCluster = geomDetUnit->topology().localPosition(mpCluster);
+      Global3DPoint globalPosCluster = geomDetUnit->surface().toGlobal(localPosCluster);
 
-        /////////////////////////
-        // Find the closest simhit
-        /////////////////////////
+      /////////////////////////
+      // Find the closest simhit
+      /////////////////////////
 
-        // Get simTracks from the cluster
-        std::vector<unsigned int> clusterSimTrackIds;
-        for(int i(0); i < clusterItr->size(); ++i){
-          SiPixelCluster::Pixel ipix = clusterItr->pixel(i);
-          std::cout << ipix.x << std::endl;
-          std::cout << ipix.y << std::endl;
-          
-
-
-          unsigned int channel(Phase2TrackerDigi::pixelToChannel(ipix.x, ipix.y));
-          std::vector<unsigned int> simTrackIds(getSimTrackId(pixelSimLinksHandle, detId, channel));
-          for (auto it : simTrackIds) {
-            bool add = true;
-            for (unsigned int j = 0; j < clusterSimTrackIds.size(); ++j) {
-              // only save simtrackids that are not present yet
-              if (it == clusterSimTrackIds.at(j))
-                add = false;
-            }
-            if (add)
-              clusterSimTrackIds.push_back(it);
+      // Get simTracks from the cluster
+      std::vector<unsigned int> clusterSimTrackIds;
+      for(unsigned int i(0); i < clusterItr->size(); ++i){
+        unsigned int channel(Phase2TrackerDigi::pixelToChannel(clusterItr->firstRow() + i, clusterItr->column()));
+        std::vector<unsigned int> simTrackIds(getSimTrackId(pixelSimLinksHandle, detId, channel));
+        for (auto it : simTrackIds) {
+          bool add = true;
+          for (unsigned int j = 0; j < clusterSimTrackIds.size(); ++j) {
+            // only save simtrackids that are not present yet
+            if (it == clusterSimTrackIds.at(j))
+              add = false;
           }
+          if (add)
+            clusterSimTrackIds.push_back(it);
         }
-        std::sort(clusterSimTrackIds.begin(), clusterSimTrackIds.end());
-        const PSimHit* closestSimHit = 0;
-        float minx = 10000;
+      }
+      std::sort(clusterSimTrackIds.begin(), clusterSimTrackIds.end());
+      const PSimHit* closestSimHit = 0;
+      float minx = 10000;
 
-    // Get the SimHits
-       for (const auto& itoken : simHitTokens_) {
-          edm::Handle<edm::PSimHitContainer> simHitHandle;
-          iEvent.getByToken(itoken, simHitHandle);
-          if (!simHitHandle.isValid())
-            continue;
-          const edm::PSimHitContainer& simHits = (*simHitHandle.product());
+  // Get the SimHits
+      for (const auto& itoken : simHitTokens_) {
+        edm::Handle<edm::PSimHitContainer> simHitHandle;
+        iEvent.getByToken(itoken, simHitHandle);
+        if (!simHitHandle.isValid())
+          continue;
+        const edm::PSimHitContainer& simHits = (*simHitHandle.product());
 
 
-          for (unsigned int simhitidx = 0; simhitidx < 2; ++simhitidx) {  // loop over both barrel and endcap hits
-            // for (edm::PSimHitContainer::const_iterator simhitIt = simHits.begin(); simhitIt != simHits.end(); ++simhitIt) {
-            for (edm::PSimHitContainer::const_iterator isim = simHits.begin(); isim != simHits.end(); ++isim) {
-              //if ((*isim).trackId() != id)
-              //  continue;
-              const PSimHit& simhitIt = (*isim);
-            //for (auto simhitIt : *simHitsRaw[simhitidx]) {
-              if (rawid == simhitIt.detUnitId()) {
-                auto it = std::lower_bound(clusterSimTrackIds.begin(), clusterSimTrackIds.end(), simhitIt.trackId());
-                if (it != clusterSimTrackIds.end() && *it == simhitIt.trackId()) {
-                  if (!closestSimHit || fabs(simhitIt.localPosition().x() - localPosCluster.x()) < minx) {
-                    minx = fabs(simhitIt.localPosition().x() - localPosCluster.x());
-                    closestSimHit = &simhitIt;
-                  }
+        for (unsigned int simhitidx = 0; simhitidx < 2; ++simhitidx) {  // loop over both barrel and endcap hits
+          // for (edm::PSimHitContainer::const_iterator simhitIt = simHits.begin(); simhitIt != simHits.end(); ++simhitIt) {
+          for (edm::PSimHitContainer::const_iterator isim = simHits.begin(); isim != simHits.end(); ++isim) {
+            //if ((*isim).trackId() != id)
+            //  continue;
+            const PSimHit& simhitIt = (*isim);
+          //for (auto simhitIt : *simHitsRaw[simhitidx]) {
+            if (rawid == simhitIt.detUnitId()) {
+              auto it = std::lower_bound(clusterSimTrackIds.begin(), clusterSimTrackIds.end(), simhitIt.trackId());
+              if (it != clusterSimTrackIds.end() && *it == simhitIt.trackId()) {
+                if (!closestSimHit || fabs(simhitIt.localPosition().x() - localPosCluster.x()) < minx) {
+                  minx = fabs(simhitIt.localPosition().x() - localPosCluster.x());
+                  closestSimHit = &simhitIt;
                 }
               }
             }
           }
         }
-        if (!closestSimHit)
-          continue;
-         // only look at simhits from highpT tracks
-        auto simTrackIt(simTracks.find(closestSimHit->trackId()));
-        if (simTrackIt == simTracks.end())
-           continue;
-        Local3DPoint localPosHit(closestSimHit->localPosition());
+      }
+      if (!closestSimHit)
+        continue;
+       // only look at simhits from highpT tracks
+      auto simTrackIt(simTracks.find(closestSimHit->trackId()));
+      if (simTrackIt == simTracks.end())
+         continue;
+      Local3DPoint localPosHit(closestSimHit->localPosition());
 
-        // cluster size
-        ++(nClusters[det].at(folderkey));
-        ++(nOtherSimHits[det].at(folderkey));
-
-
-        /////////////////////////
-        // Filling histograms
-        /////////////////////////
-
-        if(SimulatedZRPositionMap)
-          SimulatedZRPositionMap->Fill(globalPosCluster.z(), globalPosCluster.perp());
-
-        if(SimulatedXYPositionMap)
-          SimulatedXYPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
-
-        if(geomDetUnit->type().isBarrel()){
-          if(SimulatedXYBarrelPositionMap) SimulatedXYBarrelPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
-        } 
-        else {
-          if(SimulatedXYEndCapPositionMap) SimulatedXYEndCapPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
-        }
+      // cluster size
+      ++(nClusters[det].at(folderkey));
+      ++(nOtherSimHits[det].at(folderkey));
 
 
-        auto pos = layerMEs.find(folderkey);
-        if (pos == layerMEs.end())
-          continue;
-        ClusterMEs& local_mes = pos->second;
-        if(layer < 100){
-          if(det == 1){
-            local_mes.XYGlobalPositionMapPixel->Fill(globalPosCluster.z(), globalPosCluster.perp());
-            local_mes.XYLocalPositionMapPixel->Fill(localPosCluster.x(), localPosCluster.y());
-          }else if(det == 2){
-            local_mes.XYGlobalPositionMapStrip->Fill(globalPosCluster.z(), globalPosCluster.perp());
-            local_mes.XYLocalPositionMapStrip->Fill(localPosCluster.x(), localPosCluster.y());
-          }
-        }
-        if(local_mes.ClusterSize)
-          local_mes.ClusterSize->Fill(clusterItr->size());
+      /////////////////////////
+      // Filling histograms
+      /////////////////////////
+
+      if(SimulatedZRPositionMap)
+        SimulatedZRPositionMap->Fill(globalPosCluster.z(), globalPosCluster.perp());
+
+      if(SimulatedXYPositionMap)
+        SimulatedXYPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
+
+      if(geomDetUnit->type().isBarrel()){
+        if(SimulatedXYBarrelPositionMap) SimulatedXYBarrelPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
+      } 
+      else {
+        if(SimulatedXYEndCapPositionMap) SimulatedXYEndCapPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
+      }
+
+
+      auto pos = layerMEs.find(folderkey);
+      if (pos == layerMEs.end())
+        continue;
+      ClusterMEs& local_mes = pos->second;
+      if(det == 1){
+        local_mes.XYGlobalPositionMapPixel->Fill(globalPosCluster.z(), globalPosCluster.perp());
+        local_mes.XYLocalPositionMapPixel->Fill(localPosCluster.x(), localPosCluster.y());
+      }else if(det == 2){
+        local_mes.XYGlobalPositionMapStrip->Fill(globalPosCluster.z(), globalPosCluster.perp());
+        local_mes.XYLocalPositionMapStrip->Fill(localPosCluster.x(), localPosCluster.y());
+      }
+      if(local_mes.ClusterSize)
+        local_mes.ClusterSize->Fill(clusterItr->size());
+      if(det == 1){
+        local_mes.deltaXPixel->Fill(localPosCluster.x() - localPosHit.x());
+        local_mes.deltaYPixel->Fill(localPosCluster.y() - localPosHit.y());
+      }
+      else if(det == 2){
+        local_mes.deltaXStrip->Fill(localPosCluster.x() - localPosHit.x());
+        local_mes.deltaYStrip->Fill(localPosCluster.y() - localPosHit.y());
+      }
+         // Primary particles only
+      if(isPrimary(simTrackIt->second, closestSimHit)) {
+      //unsigned int procT(closestSimHit->processType());
+      //if (simTrackIt->second.vertIndex() == 0 and
+      //    (procT == 2 || procT == 7 || procT == 9 || procT == 11 || procT == 13 || procT == 15)) {
+        ++(nPrimarySimHits[det].at(folderkey));
+        --(nOtherSimHits[det].at(folderkey));  // avoid double counting
         if(det == 1){
-          local_mes.deltaXPixel->Fill(localPosCluster.x() - localPosHit.x());
-          local_mes.deltaYPixel->Fill(localPosCluster.y() - localPosHit.y());
+          local_mes.deltaXPixelP->Fill(localPosCluster.x() - localPosHit.x());
+          local_mes.deltaYPixelP->Fill(localPosCluster.y() - localPosHit.y());
+        }else if(det == 2){
+          local_mes.deltaXStripP->Fill(localPosCluster.x() - localPosHit.x());
+          local_mes.deltaYStripP->Fill(localPosCluster.y() - localPosHit.y());
         }
-        else if(det == 2){
-          local_mes.deltaXStrip->Fill(localPosCluster.x() - localPosHit.x());
-          local_mes.deltaYStrip->Fill(localPosCluster.y() - localPosHit.y());
-        }
-           // Primary particles only
-        //unsigned int procT(closestSimHit->processType());
-        if(isPrimary(simTrackIt->second, closestSimHit)) {
-        //if (simTrackIt->second.vertIndex() == 0 and
-        //    (procT == 2 || procT == 7 || procT == 9 || procT == 11 || procT == 13 || procT == 15)) {
-          ++(nPrimarySimHits[det].at(folderkey));
-          --(nOtherSimHits[det].at(folderkey));  // avoid double counting
-          if(det == 1){
-            local_mes.deltaXPixelP->Fill(localPosCluster.x() - localPosHit.x());
-            local_mes.deltaYPixelP->Fill(localPosCluster.y() - localPosHit.y());
-          }else if(det == 2){
-            local_mes.deltaXStripP->Fill(localPosCluster.x() - localPosHit.x());
-            local_mes.deltaYStripP->Fill(localPosCluster.y() - localPosHit.y());
-          }
-        }
-      }
-    }
-  } else{
-
-    for(Phase2TrackerCluster1DCollectionNew::const_iterator DSVItr = clusterHandle->begin(); DSVItr != clusterHandle->end(); ++DSVItr){
-      // Getting the id of detector unit
-      uint32_t rawid(DSVItr->detId());
-      DetId detId(rawid);
-
-
-      ///////////////////////////
-      // Getting the geometry of the detector unit
-      ///////////////////////////
-      const GeomDetUnit* geomDetUnit(tkGeom->idToDetUnit(detId));
-      if(!geomDetUnit) continue;
-
-
-      TrackerGeometry::ModuleType mType = tkGeom->getDetectorType(detId);
-      unsigned int det = 0;
-      if(pixelFlag_){
-        if (mType == TrackerGeometry::ModuleType::Ph2PXB || mType == TrackerGeometry::ModuleType::Ph2PXF) {
-          det = 1;
-        } //else {
-          //std::cout << "UNKNOWN DETECTOR TYPE!" << std::endl;
-        //}
-      } else {
-        if (mType == TrackerGeometry::ModuleType::Ph2PSP) {
-          //std::cout << "Ph2PSP" << std::endl;
-          det = 1;
-        } else if (mType == TrackerGeometry::ModuleType::Ph2PSS || mType == TrackerGeometry::ModuleType::Ph2SS) {
-          //std::cout << "Ph2PSS" << std::endl;
-          det = 2;
-        } else {
-          std::cout << "UNKNOWN DETECTOR TYPE!" << std::endl;
-        }
-      }
-
-      std::string folderkey = getHistoId(detId, tTopo, pixelFlag_);
-
-      // initialize the nhit counters if they don't exist for this layer
-      auto nhitit(nClusters[det].find(folderkey));
-      if (nhitit == nClusters[det].end()) {
-        nClusters[det].emplace(folderkey, 0);
-        nPrimarySimHits[det].emplace(folderkey, 0);
-        nOtherSimHits[det].emplace(folderkey, 0);
-      }
-
-
-      for(edmNew::DetSet<Phase2TrackerCluster1D>::const_iterator clusterItr = DSVItr->begin(); clusterItr != DSVItr->end(); ++clusterItr){
-
-        MeasurementPoint mpCluster(clusterItr->center(), clusterItr->column() + 0.5);
-        Local3DPoint localPosCluster = geomDetUnit->topology().localPosition(mpCluster);
-        Global3DPoint globalPosCluster = geomDetUnit->surface().toGlobal(localPosCluster);
-        unsigned int layer;
-        if(pixelFlag_){
-          layer = tTopo->getITPixelLayerNumber(detId);
-        } else {
-          layer = tTopo->getOTLayerNumber(detId);
-        }
-
-        /////////////////////////
-        // Find the closest simhit
-        /////////////////////////
-
-        // Get simTracks from the cluster
-        std::vector<unsigned int> clusterSimTrackIds;
-        for(unsigned int i(0); i < clusterItr->size(); ++i){
-          unsigned int channel(Phase2TrackerDigi::pixelToChannel(clusterItr->firstRow() + i, clusterItr->column()));
-          std::vector<unsigned int> simTrackIds(getSimTrackId(pixelSimLinksHandle, detId, channel));
-          for (auto it : simTrackIds) {
-            bool add = true;
-            for (unsigned int j = 0; j < clusterSimTrackIds.size(); ++j) {
-              // only save simtrackids that are not present yet
-              if (it == clusterSimTrackIds.at(j))
-                add = false;
-            }
-            if (add)
-              clusterSimTrackIds.push_back(it);
-          }
-        }
-        std::sort(clusterSimTrackIds.begin(), clusterSimTrackIds.end());
-        const PSimHit* closestSimHit = 0;
-        float minx = 10000;
-
-    // Get the SimHits
-        for (const auto& itoken : simHitTokens_) {
-          edm::Handle<edm::PSimHitContainer> simHitHandle;
-          iEvent.getByToken(itoken, simHitHandle);
-          if (!simHitHandle.isValid())
-            continue;
-          const edm::PSimHitContainer& simHits = (*simHitHandle.product());
-
-
-          for (unsigned int simhitidx = 0; simhitidx < 2; ++simhitidx) {  // loop over both barrel and endcap hits
-            // for (edm::PSimHitContainer::const_iterator simhitIt = simHits.begin(); simhitIt != simHits.end(); ++simhitIt) {
-            for (edm::PSimHitContainer::const_iterator isim = simHits.begin(); isim != simHits.end(); ++isim) {
-              //if ((*isim).trackId() != id)
-              //  continue;
-              const PSimHit& simhitIt = (*isim);
-            //for (auto simhitIt : *simHitsRaw[simhitidx]) {
-              if (rawid == simhitIt.detUnitId()) {
-                auto it = std::lower_bound(clusterSimTrackIds.begin(), clusterSimTrackIds.end(), simhitIt.trackId());
-                if (it != clusterSimTrackIds.end() && *it == simhitIt.trackId()) {
-                  if (!closestSimHit || fabs(simhitIt.localPosition().x() - localPosCluster.x()) < minx) {
-                    minx = fabs(simhitIt.localPosition().x() - localPosCluster.x());
-                    closestSimHit = &simhitIt;
-                  }
-                }
-              }
-            }
-          }
-        }
-        if (!closestSimHit)
-          continue;
-         // only look at simhits from highpT tracks
-        auto simTrackIt(simTracks.find(closestSimHit->trackId()));
-        if (simTrackIt == simTracks.end())
-           continue;
-        Local3DPoint localPosHit(closestSimHit->localPosition());
-
-        // cluster size
-        ++(nClusters[det].at(folderkey));
-        ++(nOtherSimHits[det].at(folderkey));
-
-
-        /////////////////////////
-        // Filling histograms
-        /////////////////////////
-
-        if(SimulatedZRPositionMap)
-          SimulatedZRPositionMap->Fill(globalPosCluster.z(), globalPosCluster.perp());
-
-        if(SimulatedXYPositionMap)
-          SimulatedXYPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
-
-        if(geomDetUnit->type().isBarrel()){
-          if(SimulatedXYBarrelPositionMap) SimulatedXYBarrelPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
-        } 
-        else {
-          if(SimulatedXYEndCapPositionMap) SimulatedXYEndCapPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
-        }
-
-
-        auto pos = layerMEs.find(folderkey);
-        if (pos == layerMEs.end())
-          continue;
-        ClusterMEs& local_mes = pos->second;
-        if(layer < 100){
-          if(det == 1){
-            local_mes.XYGlobalPositionMapPixel->Fill(globalPosCluster.z(), globalPosCluster.perp());
-            local_mes.XYLocalPositionMapPixel->Fill(localPosCluster.x(), localPosCluster.y());
-          }else if(det == 2){
-            local_mes.XYGlobalPositionMapStrip->Fill(globalPosCluster.z(), globalPosCluster.perp());
-            local_mes.XYLocalPositionMapStrip->Fill(localPosCluster.x(), localPosCluster.y());
-          }
-        }
-        if(local_mes.ClusterSize)
-          local_mes.ClusterSize->Fill(clusterItr->size());
-        if(det == 1){
-          local_mes.deltaXPixel->Fill(localPosCluster.x() - localPosHit.x());
-          local_mes.deltaYPixel->Fill(localPosCluster.y() - localPosHit.y());
-        }
-        else if(det == 2){
-          local_mes.deltaXStrip->Fill(localPosCluster.x() - localPosHit.x());
-          local_mes.deltaYStrip->Fill(localPosCluster.y() - localPosHit.y());
-        }
-           // Primary particles only
-        //unsigned int procT(closestSimHit->processType());
-        if(isPrimary(simTrackIt->second, closestSimHit)) {
-        //if (simTrackIt->second.vertIndex() == 0 and
-        //    (procT == 2 || procT == 7 || procT == 9 || procT == 11 || procT == 13 || procT == 15)) {
-          ++(nPrimarySimHits[det].at(folderkey));
-          --(nOtherSimHits[det].at(folderkey));  // avoid double counting
-          if(det == 1){
-            local_mes.deltaXPixelP->Fill(localPosCluster.x() - localPosHit.x());
-            local_mes.deltaYPixelP->Fill(localPosCluster.y() - localPosHit.y());
-          }else if(det == 2){
-            local_mes.deltaXStripP->Fill(localPosCluster.x() - localPosHit.x());
-            local_mes.deltaYStripP->Fill(localPosCluster.y() - localPosHit.y());
-          }
-        }
-
       }
 
     }
+
   }
+  
 
   for (unsigned int det = 1; det < 3; ++det) {
     for (auto it : nClusters[det]) {
       auto pos = layerMEs.find(it.first);
       
-      //std::cout << "Det: " << det << std::endl;
-      //std::cout << "nClusters[det]: " << nClusters[det].at(it.first) << std::endl;
       if (pos == layerMEs.end())
       {
         std::cout << "*** SL *** No histogram for an existing counter! This should not happen!" << std::endl;
@@ -571,7 +338,7 @@ void Phase2TrackerValidateCluster::analyze(const edm::Event& iEvent, const edm::
 //
 // -- Book Histograms
 //
-void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker, 
+void Phase2OTValidateCluster::bookHistograms(DQMStore::IBooker& ibooker, 
                                                   edm::Run const& iRun, 
                                                   edm::EventSetup const& iSetup){
   std::string top_folder = config_.getParameter<std::string>("TopFolderName");
@@ -582,7 +349,7 @@ void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker,
     << "SimClusterInfo";
   ibooker.setCurrentFolder(folder_name.str());
 
-  edm::LogInfo("Phase2TrackerValidateCluster") << " Booking Histograms in: " << folder_name.str();
+  edm::LogInfo("Phase2OTValidateCluster") << " Booking Histograms in: " << folder_name.str();
   std::stringstream HistoName;
 
   edm::ParameterSet Parameters = config_.getParameter<edm::ParameterSet>("ZRPositionMapH");
@@ -656,42 +423,24 @@ void Phase2TrackerValidateCluster::bookHistograms(DQMStore::IBooker& ibooker,
 
     for (auto const& det_u : tGeom->detUnits()) {
       uint32_t detId_raw = det_u->geographicalId().rawId();
-      bookLayerHistos(ibooker, detId_raw, tTopo, pixelFlag_);
+      bookLayerHistos(ibooker, detId_raw, tTopo);
     }    
   }
-  //return;
-  //for(auto& f : layerMEs) 
-  //  std::cout << f.first << std::endl;
 }
 
 //////////////////Layer Histo/////////////////////////////////
-void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
+void Phase2OTValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
                                                    uint32_t det_id,
-                                                   const TrackerTopology* tTopo,
-                                                   bool flag) {
-  std::string folderName = getHistoId(det_id, tTopo, flag);
+                                                   const TrackerTopology* tTopo) {
+  std::string folderName = getHistoId(det_id, tTopo);
   if(folderName == ""){
-    edm::LogInfo("Phase2TrackerValidateCluster") << ">>>> Invalid histo_id ";
+    edm::LogInfo("Phase2OTValidateCluster") << ">>>> Invalid histo_id ";
     return;
   }
-  
-  unsigned int layer;
-  if(flag)
-  {
-    layer = tTopo->getITPixelLayerNumber(det_id);
-    //std::cout << "Layer: " << layer << std::endl;
-  }
-  else
-    layer = tTopo->getOTLayerNumber(det_id);
-
   std::map<std::string, ClusterMEs>::iterator pos = layerMEs.find(folderName);
 
   if(pos == layerMEs.end()){
-    //std::cout << "histo_id: " << folderName << std::endl;
-
-    
     std::string top_folder = config_.getParameter<std::string>("TopFolderName");
-    //std::stringstream folder_name;
 
     ibooker.cd();
 
@@ -714,20 +463,6 @@ void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
     else
       local_mes.ClusterSize = nullptr;
     
-    /*
-    Parameters = config_.getParameter<edm::ParameterSet>("ClusterCharge");
-    HistoName.str("");
-    HistoName << "ClusterCharge";
-    if(Parameters.getParameter<bool>("switch"))
-      local_mes.ClusterCharge = ibooker.book1D(HistoName.str(),
-                                              HistoName.str(),
-                                              Parameters.getParameter<int32_t>("NxBins"),
-                                              Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
-    else
-      local_mes.ClusterCharge = nullptr;
-      */
-
     // Delta position with simhits
 
     Parameters = config_.getParameter<edm::ParameterSet>("Delta_X_Strip");
@@ -902,7 +637,7 @@ void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
                                               Parameters.getParameter<double>("xmax"));
     else
       local_mes.otherDigisStrip = nullptr;
-    if (layer < 100)
+    if (1)
     {
       Parameters = config_.getParameter<edm::ParameterSet>("XYGlobalPositionMapH");
       HistoName.str("");
@@ -963,8 +698,6 @@ void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
         local_mes.XYLocalPositionMapPixel = nullptr;
     }
 
-    //local_mes.nCluster = 1;
-
     layerMEs.insert(std::make_pair(folderName, local_mes));
 
   }
@@ -972,7 +705,7 @@ void Phase2TrackerValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
 }
 
 
-bool Phase2TrackerValidateCluster::isPrimary(const SimTrack& simTrk, const PSimHit* simHit){
+bool Phase2OTValidateCluster::isPrimary(const SimTrack& simTrk, const PSimHit* simHit){
   bool retval = false;
   unsigned int trkId = simTrk.trackId();
   if (trkId != simHit->trackId())
@@ -984,15 +717,10 @@ bool Phase2TrackerValidateCluster::isPrimary(const SimTrack& simTrk, const PSimH
   return retval;
 }
 
-std::string  Phase2TrackerValidateCluster::getHistoId(uint32_t det_id, const TrackerTopology* tTopo, bool flag) {
+std::string  Phase2OTValidateCluster::getHistoId(uint32_t det_id, const TrackerTopology* tTopo) {
   int layer;
   std::ostringstream fname1, fname2, fname3;
-  if(flag){
-    layer = tTopo->getITPixelLayerNumber(det_id);
-  }
-  else {
-    layer = tTopo->getOTLayerNumber(det_id);
-  }
+  layer = tTopo->getOTLayerNumber(det_id);
   if(layer < 0)
     return "";
 
@@ -1004,20 +732,15 @@ std::string  Phase2TrackerValidateCluster::getHistoId(uint32_t det_id, const Tra
     int side = layer / 100;
     fname1 << "EndCap_Side" << side << "/";
     int disc = layer - side * 100;
-    if(flag){
-      fname2 << "Disc" << disc;
-    } else {
-      disc = (disc < 3) ? 12 : 345;
-      fname2 << "Disc" << disc << "/";
-      int ring = tTopo->tidRing(det_id);
-      fname3 << "Ring" << ring;
-    }
+    disc = (disc < 3) ? 12 : 345;
+    fname2 << "Disc" << disc << "/";
+    int ring = tTopo->tidRing(det_id);
+    fname3 << "Ring" << ring;
   }
   fname1 << fname2.str() << fname3.str();
-  //std::cout << fname1.str() << std::endl;
   return fname1.str();
 }  
-std::vector<unsigned int> Phase2TrackerValidateCluster::getSimTrackId(
+std::vector<unsigned int> Phase2OTValidateCluster::getSimTrackId(
     const edm::Handle<edm::DetSetVector<PixelDigiSimLink> >& pixelSimLinks, const DetId& detId, unsigned int channel) {
   std::vector<unsigned int> retvec;
   edm::DetSetVector<PixelDigiSimLink>::const_iterator DSViter(pixelSimLinks->find(detId));
@@ -1030,4 +753,4 @@ std::vector<unsigned int> Phase2TrackerValidateCluster::getSimTrackId(
   }
   return retvec;
 }
-DEFINE_FWK_MODULE(Phase2TrackerValidateCluster);
+DEFINE_FWK_MODULE(Phase2OTValidateCluster);

@@ -26,7 +26,8 @@ process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase2_realistic', '')
 process.source = cms.Source("PoolSource",
     fileNames = cms.untracked.vstring(
       #'file:step2.root'
-      'file:051C2F4A-56AC-3943-BA4D-3DF295E026DF.root'
+      #'file:051C2F4A-56AC-3943-BA4D-3DF295E026DF.root'
+      'file:/afs/cern.ch/work/g/garamire/public/DQMTracker/CMSSW_11_1_0_pre7/src/Validation/SiTrackerPhase2V/test/051C2F4A-56AC-3943-BA4D-3DF295E026DF.root',
       )
     )
 
@@ -48,9 +49,9 @@ process.DQMoutput = cms.OutputModule("PoolOutputModule",
       )
     )
 
-process.load('Validation.SiTrackerPhase2V.Phase2TrackerValidateCluster_cff')
-process.clusterana_seq = cms.Sequence(process.otClusterValid * process.pixClusterValid)
-#process.clusterana_seq = cms.Sequence(process.pixClusterValid)
+process.load('Validation.SiTrackerPhase2V.Phase2OTValidateCluster_cff')
+#process.clusterana_seq = cms.Sequence(process.otClusterValid * process.pixClusterValid)
+process.clusterana_seq = cms.Sequence(process.otClusterValid)
 
 process.load('DQMServices.Components.DQMEventInfo_cfi')
 process.dqmEnv.subSystemFolder = cms.untracked.string('Ph2TkCluster')

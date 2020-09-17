@@ -1,5 +1,5 @@
-#ifndef Phase2TrackerValidateCluster_h
-#define Phase2TrackerValidateCluster_h
+#ifndef Phase2OTValidateCluster_h
+#define Phase2OTValidateCluster_h
 
 #include "DQMServices/Core/interface/DQMEDAnalyzer.h"
 #include "DQMServices/Core/interface/DQMStore.h"
@@ -27,42 +27,39 @@
 
 // DQM Histograms
 
-class Phase2TrackerValidateCluster : public DQMEDAnalyzer {
+class Phase2OTValidateCluster : public DQMEDAnalyzer {
 public:
   typedef std::map<unsigned int, std::vector<PSimHit> > SimHitsMap;
   typedef std::map<unsigned int, SimTrack> SimTracksMap;
 
-  explicit Phase2TrackerValidateCluster(const edm::ParameterSet&);
-  ~Phase2TrackerValidateCluster() override;
+  explicit Phase2OTValidateCluster(const edm::ParameterSet&);
+  ~Phase2OTValidateCluster() override;
   void bookHistograms(DQMStore::IBooker& ibooker, edm::Run const& iRun, edm::EventSetup const& iSetup) override;
   void analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) override;
-  //uint32_t getHistoId(uint32_t det_id, const TrackerTopology* tTopo, bool flag); 
   bool isPrimary(const SimTrack& simTrk, const PSimHit* simHit);
-  std::string getHistoId(uint32_t det_id, const TrackerTopology* tTopo, bool flag); 
+  std::string getHistoId(uint32_t det_id, const TrackerTopology* tTopo); 
   std::vector<unsigned int> getSimTrackId(const edm::Handle<edm::DetSetVector<PixelDigiSimLink> >& pixelSimLinks, const DetId& detId, unsigned int channel);
 
   struct ClusterMEs {
-    //uint32_t nCluster;
-    MonitorElement* ClusterSize;
-    //MonitorElement* ClusterCharge;
-    MonitorElement* deltaXStrip;
-    MonitorElement* deltaXPixel;
-    MonitorElement* deltaYStrip;
-    MonitorElement* deltaYPixel;
-    MonitorElement* deltaXStripP;
-    MonitorElement* deltaXPixelP;
-    MonitorElement* deltaYStripP;
-    MonitorElement* deltaYPixelP;
-    MonitorElement* allDigisStrip;
-    MonitorElement* allDigisPixel;
-    MonitorElement* primaryDigisStrip;
-    MonitorElement* primaryDigisPixel;
-    MonitorElement* otherDigisStrip;
-    MonitorElement* otherDigisPixel;
-    MonitorElement* XYGlobalPositionMapPixel;
-    MonitorElement* XYGlobalPositionMapStrip;
-    MonitorElement* XYLocalPositionMapPixel;
-    MonitorElement* XYLocalPositionMapStrip;
+    MonitorElement* ClusterSize=nullptr;
+    MonitorElement* deltaXStrip=nullptr;
+    MonitorElement* deltaXPixel=nullptr;
+    MonitorElement* deltaYStrip=nullptr;
+    MonitorElement* deltaYPixel=nullptr;
+    MonitorElement* deltaXStripP=nullptr;
+    MonitorElement* deltaXPixelP=nullptr;
+    MonitorElement* deltaYStripP=nullptr;
+    MonitorElement* deltaYPixelP=nullptr;
+    MonitorElement* allDigisStrip=nullptr;
+    MonitorElement* allDigisPixel=nullptr;
+    MonitorElement* primaryDigisStrip=nullptr;
+    MonitorElement* primaryDigisPixel=nullptr;
+    MonitorElement* otherDigisStrip=nullptr;
+    MonitorElement* otherDigisPixel=nullptr;
+    MonitorElement* XYGlobalPositionMapPixel=nullptr;
+    MonitorElement* XYGlobalPositionMapStrip=nullptr;
+    MonitorElement* XYLocalPositionMapPixel=nullptr;
+    MonitorElement* XYLocalPositionMapStrip=nullptr;
   };
 
   enum HISTOID {
@@ -75,9 +72,8 @@ private:
   MonitorElement* SimulatedXYEndCapPositionMap;
 
 
-  void bookLayerHistos(DQMStore::IBooker& ibooker, uint32_t det_it, const TrackerTopology* tTopo, bool flag);
+  void bookLayerHistos(DQMStore::IBooker& ibooker, uint32_t det_it, const TrackerTopology* tTopo);
 
-  //std::map<uint32_t, ClusterMEs> layerMEs;
   std::map<std::string, ClusterMEs> layerMEs;
 
   edm::ParameterSet config_;
@@ -91,11 +87,7 @@ private:
   edm::EDGetTokenT<edm::DetSetVector<PixelDigiSimLink>> simITLinksToken_;
   edm::EDGetTokenT<edm::SimTrackContainer> simTracksToken_;
   edm::EDGetTokenT<Phase2TrackerCluster1DCollectionNew> clustersToken_;
-  edm::EDGetTokenT<edmNew::DetSetVector<SiPixelCluster>> itPixelClusterToken_;
   std::vector<edm::InputTag> pSimHitSrc_;
   edm::ESHandle<TrackerTopology> tTopoHandle_;
-  //edm::EDGetTokenT<edm::PSimHitContainer> simHitsBToken_;
-  //edm::EDGetTokenT<edm::PSimHitContainer> simHitsEToken_;
-
 };
 #endif
