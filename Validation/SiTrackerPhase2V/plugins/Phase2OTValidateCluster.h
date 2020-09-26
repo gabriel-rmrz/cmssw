@@ -15,6 +15,7 @@
 
 
 #include "DataFormats/Phase2TrackerCluster/interface/Phase2TrackerCluster1D.h"
+#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "DataFormats/Common/interface/DetSetVectorNew.h"
 #include "DataFormats/Common/interface/DetSetVector.h"
@@ -72,6 +73,11 @@ private:
   MonitorElement* SimulatedXYEndCapPositionMap;
 
 
+  void fillOTHistos(const edm::Event& iEvent,
+                    const TrackerTopology*tTopo,
+                    const TrackerGeometry* tkGeom,
+                    const std::vector<edm::Handle<edm::PSimHitContainer>>& simHits,
+                    const std::map<unsigned int, SimTrack>& simTracks);
   void bookLayerHistos(DQMStore::IBooker& ibooker, uint32_t det_it, const TrackerTopology* tTopo);
 
   std::map<std::string, ClusterMEs> layerMEs;

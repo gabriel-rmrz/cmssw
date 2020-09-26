@@ -50,6 +50,7 @@ process.DQMoutput = cms.OutputModule("PoolOutputModule",
     )
 
 process.load('Validation.SiTrackerPhase2V.Phase2OTValidateCluster_cff')
+process.load('Validation.SiTrackerPhase2V.Phase2ITValidateCluster_cff')
 #process.clusterana_seq = cms.Sequence(process.otClusterValid * process.pixClusterValid)
 process.clusterana_seq = cms.Sequence(process.otClusterValid)
 

@@ -30,13 +30,9 @@
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Framework/interface/ESWatcher.h"
 
-//#include "Geometry/CommonDetUnit/interface/GeomDet.h"
-//#include "Geometry/CommonDetUnit/interface/TrackerGeomDet.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/CommonDetUnit/interface/PixelGeomDetUnit.h"
-//#include "Geometry/CommonDetUnit/interface/PixelGeomDetType.h"
-//#include "Geometry/CommonDetUnit/interface/GeomDet.h"
 
 #include "DataFormats/Common/interface/DetSetVectorNew.h"
 #include "DataFormats/Common/interface/DetSetVector.h"
@@ -77,15 +73,17 @@ Phase2OTValidateCluster::~Phase2OTValidateCluster() {
 //
 void Phase2OTValidateCluster::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
   using namespace edm;
+  
+  // Getting simHits
+  std::vector<edm::Handle<edm::PSimHitContainer>> simHits;
+  for (const auto& itoken : simHitTokens_) {
+    edm::Handle<edm::PSimHitContainer> simHitHandle;
+    iEvent.getByToken(itoken, simHitHandle);
+    if (!simHitHandle.isValid())
+      continue;
+    simHits.emplace_back(simHitHandle);
+  }
 
-  // Getting the clusters
-  edm::Handle<Phase2TrackerCluster1DCollectionNew> clusterHandle;
-  iEvent.getByToken(clustersToken_, clusterHandle);
-
-  // Getting PixelDigiSimLinks
-  edm::Handle<edm::DetSetVector<PixelDigiSimLink> > pixelSimLinksHandle;
-
-  iEvent.getByToken(simOTLinksToken_, pixelSimLinksHandle);
 
   // Get the SimTracks
   edm::Handle<edm::SimTrackContainer> simTracksRaw;
@@ -113,7 +111,23 @@ void Phase2OTValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
       simTracks.emplace(simTrackIt->trackId(), *simTrackIt);
     }
   }
+  fillOTHistos(iEvent, tTopo, tkGeom, simHits, simTracks);
+}
   
+void Phase2OTValidateCluster::fillOTHistos(const edm::Event& iEvent,
+                                           const TrackerTopology*tTopo,
+                                           const TrackerGeometry* tkGeom,
+                                           const std::vector<edm::Handle<edm::PSimHitContainer>>& simHits,
+                                           const std::map<unsigned int, SimTrack>& simTracks){
+
+  // Getting the clusters
+  edm::Handle<Phase2TrackerCluster1DCollectionNew> clusterHandle;
+  iEvent.getByToken(clustersToken_, clusterHandle);
+
+  // Getting PixelDigiSimLinks
+  edm::Handle<edm::DetSetVector<PixelDigiSimLink> > pixelSimLinksHandle;
+  iEvent.getByToken(simOTLinksToken_, pixelSimLinksHandle);
+
   // Number of clusters
   std::map<std::string, unsigned int> nClusters[3];
   std::map<std::string, unsigned int> nPrimarySimHits[3];
@@ -183,34 +197,24 @@ void Phase2OTValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
       const PSimHit* closestSimHit = 0;
       float minx = 10000;
 
-  // Get the SimHits
-      for (const auto& itoken : simHitTokens_) {
-        edm::Handle<edm::PSimHitContainer> simHitHandle;
-        iEvent.getByToken(itoken, simHitHandle);
-        if (!simHitHandle.isValid())
-          continue;
-        const edm::PSimHitContainer& simHits = (*simHitHandle.product());
-
-
-        for (unsigned int simhitidx = 0; simhitidx < 2; ++simhitidx) {  // loop over both barrel and endcap hits
-          // for (edm::PSimHitContainer::const_iterator simhitIt = simHits.begin(); simhitIt != simHits.end(); ++simhitIt) {
-          for (edm::PSimHitContainer::const_iterator isim = simHits.begin(); isim != simHits.end(); ++isim) {
-            //if ((*isim).trackId() != id)
-            //  continue;
-            const PSimHit& simhitIt = (*isim);
-          //for (auto simhitIt : *simHitsRaw[simhitidx]) {
-            if (rawid == simhitIt.detUnitId()) {
-              auto it = std::lower_bound(clusterSimTrackIds.begin(), clusterSimTrackIds.end(), simhitIt.trackId());
-              if (it != clusterSimTrackIds.end() && *it == simhitIt.trackId()) {
-                if (!closestSimHit || fabs(simhitIt.localPosition().x() - localPosCluster.x()) < minx) {
-                  minx = fabs(simhitIt.localPosition().x() - localPosCluster.x());
-                  closestSimHit = &simhitIt;
-                }
+      // Get the SimHits
+      for (unsigned int si = 0; si < simHits.size(); ++si) {
+        for(edm::PSimHitContainer::const_iterator isim = simHits.at(si)->begin();
+           isim != simHits.at(si)->end(); ++isim) { 
+      //  for (edm::PSimHitContainer::const_iterator isim = simHits.begin(); isim != simHits.end(); ++isim) {
+          const PSimHit& simhitIt = (*isim);
+          if (rawid == simhitIt.detUnitId()) {
+            auto it = std::lower_bound(clusterSimTrackIds.begin(), clusterSimTrackIds.end(), simhitIt.trackId());
+            if (it != clusterSimTrackIds.end() && *it == simhitIt.trackId()) {
+              if (!closestSimHit || fabs(simhitIt.localPosition().x() - localPosCluster.x()) < minx) {
+                minx = fabs(simhitIt.localPosition().x() - localPosCluster.x());
+                closestSimHit = &simhitIt;
               }
             }
           }
-        }
-      }
+        }//end loop over PSimhitcontainers
+      }//end loop over simHits
+      
       if (!closestSimHit)
         continue;
        // only look at simhits from highpT tracks
@@ -265,9 +269,6 @@ void Phase2OTValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
       }
          // Primary particles only
       if(isPrimary(simTrackIt->second, closestSimHit)) {
-      //unsigned int procT(closestSimHit->processType());
-      //if (simTrackIt->second.vertIndex() == 0 and
-      //    (procT == 2 || procT == 7 || procT == 9 || procT == 11 || procT == 13 || procT == 15)) {
         ++(nPrimarySimHits[det].at(folderkey));
         --(nOtherSimHits[det].at(folderkey));  // avoid double counting
         if(det == 1){
