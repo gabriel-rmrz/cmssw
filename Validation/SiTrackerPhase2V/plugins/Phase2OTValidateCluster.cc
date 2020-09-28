@@ -517,6 +517,7 @@ void Phase2OTValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
 
     // Delta position with simhits for primary tracks only
 
+    ibooker.setCurrentFolder(top_folder+'/'+folderName + "/PrimarySimHits"); // Puting primary digis in a subfolder
     Parameters = config_.getParameter<edm::ParameterSet>("Delta_X_Strip_P");
     HistoName.str("");
     HistoName << "Delta_X_Strip_P";
@@ -615,6 +616,7 @@ void Phase2OTValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
     else
       local_mes.primaryDigisStrip = nullptr;
 
+    ibooker.setCurrentFolder(top_folder+'/'+folderName); // Puting non primary digis in the parent folder
     Parameters = config_.getParameter<edm::ParameterSet>("Other_Digis_Pixel");
     HistoName.str("");
     HistoName << "Other_Digis_Pixel";
