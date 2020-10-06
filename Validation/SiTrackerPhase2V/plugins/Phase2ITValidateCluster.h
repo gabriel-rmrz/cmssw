@@ -42,24 +42,15 @@ public:
 
   struct ClusterMEs {
     MonitorElement* ClusterSize=nullptr;
-    MonitorElement* deltaXStrip=nullptr;
     MonitorElement* deltaXPixel=nullptr;
-    MonitorElement* deltaYStrip=nullptr;
     MonitorElement* deltaYPixel=nullptr;
-    MonitorElement* deltaXStripP=nullptr;
     MonitorElement* deltaXPixelP=nullptr;
-    MonitorElement* deltaYStripP=nullptr;
     MonitorElement* deltaYPixelP=nullptr;
-    MonitorElement* allDigisStrip=nullptr;
     MonitorElement* allDigisPixel=nullptr;
-    MonitorElement* primaryDigisStrip=nullptr;
     MonitorElement* primaryDigisPixel=nullptr;
-    MonitorElement* otherDigisStrip=nullptr;
     MonitorElement* otherDigisPixel=nullptr;
     MonitorElement* XYGlobalPositionMapPixel=nullptr;
-    MonitorElement* XYGlobalPositionMapStrip=nullptr;
     MonitorElement* XYLocalPositionMapPixel=nullptr;
-    MonitorElement* XYLocalPositionMapStrip=nullptr;
   };
 
   enum HISTOID {
