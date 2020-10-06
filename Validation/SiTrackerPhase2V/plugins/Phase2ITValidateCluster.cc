@@ -112,9 +112,9 @@ void Phase2ITValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
   }
   
   // Number of clusters
-  std::map<std::string, unsigned int> nClusters[3];
-  std::map<std::string, unsigned int> nPrimarySimHits[3];
-  std::map<std::string, unsigned int> nOtherSimHits[3];
+  std::map<std::string, unsigned int> nClusters;
+  std::map<std::string, unsigned int> nPrimarySimHits;
+  std::map<std::string, unsigned int> nOtherSimHits;
   
   for(edmNew::DetSetVector<SiPixelCluster>::const_iterator DSVItr = itPixelClusterHandle->begin(); DSVItr != itPixelClusterHandle->end(); ++DSVItr){
     // Getting the id of detector unit
@@ -135,23 +135,19 @@ void Phase2ITValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
 
 
     TrackerGeometry::ModuleType mType = tkGeom->getDetectorType(detId);
-    unsigned int det = 0;
 
-    if (mType == TrackerGeometry::ModuleType::Ph2PXB || mType == TrackerGeometry::ModuleType::Ph2PXF) {
-      det = 1;
-    } else {
+    if (!(mType == TrackerGeometry::ModuleType::Ph2PXB || mType == TrackerGeometry::ModuleType::Ph2PXF)) {
       std::cout << "UNKNOWN DETECTOR TYPE!" << std::endl;
     }
-    det++;
 
     std::string folderkey = getHistoId(detId, tTopo);
 
     // initialize the nhit counters if they don't exist for this layer
-    auto nhitit(nClusters[det].find(folderkey));
-    if (nhitit == nClusters[det].end()) {
-      nClusters[det].emplace(folderkey, 0);
-      nPrimarySimHits[det].emplace(folderkey, 0);
-      nOtherSimHits[det].emplace(folderkey, 0);
+    auto nhitit(nClusters.find(folderkey));
+    if (nhitit == nClusters.end()) {
+      nClusters.emplace(folderkey, 0);
+      nPrimarySimHits.emplace(folderkey, 0);
+      nOtherSimHits.emplace(folderkey, 0);
     }
 
 
@@ -197,12 +193,8 @@ void Phase2ITValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
 
 
         for (unsigned int simhitidx = 0; simhitidx < 2; ++simhitidx) {  // loop over both barrel and endcap hits
-          // for (edm::PSimHitContainer::const_iterator simhitIt = simHits.begin(); simhitIt != simHits.end(); ++simhitIt) {
           for (edm::PSimHitContainer::const_iterator isim = simHits.begin(); isim != simHits.end(); ++isim) {
-            //if ((*isim).trackId() != id)
-            //  continue;
             const PSimHit& simhitIt = (*isim);
-          //for (auto simhitIt : *simHitsRaw[simhitidx]) {
             if (rawid == simhitIt.detUnitId()) {
               auto it = std::lower_bound(clusterSimTrackIds.begin(), clusterSimTrackIds.end(), simhitIt.trackId());
               if (it != clusterSimTrackIds.end() && *it == simhitIt.trackId()) {
@@ -224,8 +216,8 @@ void Phase2ITValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
       Local3DPoint localPosHit(closestSimHit->localPosition());
 
       // cluster size
-      ++(nClusters[det].at(folderkey));
-      ++(nOtherSimHits[det].at(folderkey));
+      ++(nClusters.at(folderkey));
+      ++(nOtherSimHits.at(folderkey));
 
 
       /////////////////////////
@@ -245,90 +237,58 @@ void Phase2ITValidateCluster::analyze(const edm::Event& iEvent, const edm::Event
         if(SimulatedXYEndCapPositionMap) SimulatedXYEndCapPositionMap->Fill(globalPosCluster.x(), globalPosCluster.y());
       }
 
-
       auto pos = layerMEs.find(folderkey);
       if (pos == layerMEs.end())
         continue;
       ClusterMEs& local_mes = pos->second;
-      if(det == 1){
-        local_mes.XYGlobalPositionMapPixel->Fill(globalPosCluster.z(), globalPosCluster.perp());
-        local_mes.XYLocalPositionMapPixel->Fill(localPosCluster.x(), localPosCluster.y());
-      }else if(det == 2){
-        local_mes.XYGlobalPositionMapStrip->Fill(globalPosCluster.z(), globalPosCluster.perp());
-        local_mes.XYLocalPositionMapStrip->Fill(localPosCluster.x(), localPosCluster.y());
-      }
+      local_mes.XYGlobalPositionMapPixel->Fill(globalPosCluster.z(), globalPosCluster.perp());
+      local_mes.XYLocalPositionMapPixel->Fill(localPosCluster.x(), localPosCluster.y());
       if(local_mes.ClusterSize)
         local_mes.ClusterSize->Fill(clusterItr->size());
-      if(det == 1){
-        local_mes.deltaXPixel->Fill(localPosCluster.x() - localPosHit.x());
-        local_mes.deltaYPixel->Fill(localPosCluster.y() - localPosHit.y());
-      }
-      else if(det == 2){
-        local_mes.deltaXStrip->Fill(localPosCluster.x() - localPosHit.x());
-        local_mes.deltaYStrip->Fill(localPosCluster.y() - localPosHit.y());
-      }
+
+      local_mes.deltaXPixel->Fill(localPosCluster.x() - localPosHit.x());
+      local_mes.deltaYPixel->Fill(localPosCluster.y() - localPosHit.y());
          // Primary particles only
-      //unsigned int procT(closestSimHit->processType());
       if(isPrimary(simTrackIt->second, closestSimHit)) {
-      //if (simTrackIt->second.vertIndex() == 0 and
-      //    (procT == 2 || procT == 7 || procT == 9 || procT == 11 || procT == 13 || procT == 15)) {
-        ++(nPrimarySimHits[det].at(folderkey));
-        --(nOtherSimHits[det].at(folderkey));  // avoid double counting
-        if(det == 1){
-          local_mes.deltaXPixelP->Fill(localPosCluster.x() - localPosHit.x());
-          local_mes.deltaYPixelP->Fill(localPosCluster.y() - localPosHit.y());
-        }else if(det == 2){
-          local_mes.deltaXStripP->Fill(localPosCluster.x() - localPosHit.x());
-          local_mes.deltaYStripP->Fill(localPosCluster.y() - localPosHit.y());
-        }
+        ++(nPrimarySimHits.at(folderkey));
+        --(nOtherSimHits.at(folderkey));  // avoid double counting
+        local_mes.deltaXPixelP->Fill(localPosCluster.x() - localPosHit.x());
+        local_mes.deltaYPixelP->Fill(localPosCluster.y() - localPosHit.y());
       }
     }
   }
-  for (unsigned int det = 1; det < 3; ++det) {
-    for (auto it : nClusters[det]) {
-      auto pos = layerMEs.find(it.first);
-      
-      if (pos == layerMEs.end())
-      {
-        std::cout << "*** SL *** No histogram for an existing counter! This should not happen!" << std::endl;
-        continue;
-      }
-      ClusterMEs& local_mes = pos->second;
-      if(det == 1){
-        local_mes.allDigisPixel->Fill(it.second);
-      }else if(det == 2){
-        local_mes.allDigisStrip->Fill(it.second);
-      }
+  for (auto it : nClusters) {
+    auto pos = layerMEs.find(it.first);
+    
+    if (pos == layerMEs.end())
+    {
+      std::cout << "*** SL *** No histogram for an existing counter! This should not happen!" << std::endl;
+      continue;
     }
-    for (auto it : nPrimarySimHits[det]) {
-      auto pos = layerMEs.find(it.first);
-      if (pos == layerMEs.end())
-      {
-        std::cout << "*** SL *** No histogram for an existing counter! This should not happen!" << std::endl;
-        continue;
-      }
-      ClusterMEs& local_mes = pos->second;
-      if(det == 1){
-        local_mes.primaryDigisPixel->Fill(it.second);
-      }else if(det == 2){
-        local_mes.primaryDigisStrip->Fill(it.second);
-      }
-    }
-    for (auto it : nOtherSimHits[det]) {
-      auto pos = layerMEs.find(it.first);
-      if (pos == layerMEs.end())
-      {
-        std::cout << "*** SL *** No histogram for an existing counter! This should not happen!" << std::endl;
-        continue;
-      }
-      ClusterMEs& local_mes = pos->second;
-      if(det == 1){
-        local_mes.otherDigisPixel->Fill(it.second);
-      }else if(det == 2){
-        local_mes.otherDigisStrip->Fill(it.second);
-      }
-    }
+    ClusterMEs& local_mes = pos->second;
+    local_mes.allDigisPixel->Fill(it.second);
   }
+  for (auto it : nPrimarySimHits) {
+    auto pos = layerMEs.find(it.first);
+    if (pos == layerMEs.end())
+    {
+      std::cout << "*** SL *** No histogram for an existing counter! This should not happen!" << std::endl;
+      continue;
+    }
+    ClusterMEs& local_mes = pos->second;
+    local_mes.primaryDigisPixel->Fill(it.second);
+  }
+  for (auto it : nOtherSimHits) {
+    auto pos = layerMEs.find(it.first);
+    if (pos == layerMEs.end())
+    {
+      std::cout << "*** SL *** No histogram for an existing counter! This should not happen!" << std::endl;
+      continue;
+    }
+    ClusterMEs& local_mes = pos->second;
+    local_mes.otherDigisPixel->Fill(it.second);
+  }
+  
 
   return;
 }
@@ -478,18 +438,6 @@ void Phase2ITValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
 
     // Delta position with simhits
 
-    Parameters = config_.getParameter<edm::ParameterSet>("Delta_X_Strip");
-    HistoName.str("");
-    HistoName << "Delta_X_Strip";
-    if(Parameters.getParameter<bool>("switch"))
-      local_mes.deltaXStrip = ibooker.book1D(HistoName.str(),
-                                              HistoName.str(),
-                                              Parameters.getParameter<int32_t>("NxBins"),
-                                              Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
-    else
-      local_mes.deltaXStrip = nullptr;
-
     Parameters = config_.getParameter<edm::ParameterSet>("Delta_X_Pixel");
     HistoName.str("");
     HistoName << "Delta_X_Pixel";
@@ -501,18 +449,6 @@ void Phase2ITValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
                                               Parameters.getParameter<double>("xmax"));
     else
       local_mes.deltaXPixel = nullptr;
-
-    Parameters = config_.getParameter<edm::ParameterSet>("Delta_Y_Strip");
-    HistoName.str("");
-    HistoName << "Delta_Y_Strip";
-    if(Parameters.getParameter<bool>("switch"))
-      local_mes.deltaYStrip = ibooker.book1D(HistoName.str(),
-                                              HistoName.str(),
-                                              Parameters.getParameter<int32_t>("NxBins"),
-                                              Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
-    else
-      local_mes.deltaYStrip = nullptr;
 
     Parameters = config_.getParameter<edm::ParameterSet>("Delta_Y_Pixel");
     HistoName.str("");
@@ -527,20 +463,6 @@ void Phase2ITValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
       local_mes.deltaYPixel = nullptr;
 
 
-    // Delta position with simhits for primary tracks only
-
-    Parameters = config_.getParameter<edm::ParameterSet>("Delta_X_Strip_P");
-    HistoName.str("");
-    HistoName << "Delta_X_Strip_P";
-    if(Parameters.getParameter<bool>("switch"))
-      local_mes.deltaXStripP = ibooker.book1D(HistoName.str(),
-                                              HistoName.str(),
-                                              Parameters.getParameter<int32_t>("NxBins"),
-                                              Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
-    else
-      local_mes.deltaXStripP = nullptr;
-
     Parameters = config_.getParameter<edm::ParameterSet>("Delta_X_Pixel_P");
     HistoName.str("");
     HistoName << "Delta_X_Pixel_P";
@@ -553,17 +475,6 @@ void Phase2ITValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
     else
       local_mes.deltaXPixelP = nullptr;
 
-    Parameters = config_.getParameter<edm::ParameterSet>("Delta_Y_Strip_P");
-    HistoName.str("");
-    HistoName << "Delta_Y_Strip_P";
-    if(Parameters.getParameter<bool>("switch"))
-      local_mes.deltaYStripP = ibooker.book1D(HistoName.str(),
-                                              HistoName.str(),
-                                              Parameters.getParameter<int32_t>("NxBins"),
-                                              Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
-    else
-      local_mes.deltaYStripP = nullptr;
 
     Parameters = config_.getParameter<edm::ParameterSet>("Delta_Y_Pixel_P");
     HistoName.str("");
@@ -590,18 +501,6 @@ void Phase2ITValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
     else
       local_mes.allDigisPixel = nullptr;
 
-    Parameters = config_.getParameter<edm::ParameterSet>("Primary_Digis_Strip");
-    HistoName.str("");
-    HistoName << "all_Digis_Strip";
-    if(Parameters.getParameter<bool>("switch"))
-      local_mes.allDigisStrip = ibooker.book1D(HistoName.str(),
-                                              HistoName.str(),
-                                              Parameters.getParameter<int32_t>("NxBins"),
-                                              Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
-    else
-      local_mes.allDigisStrip = nullptr;
-
 
     Parameters = config_.getParameter<edm::ParameterSet>("Primary_Digis_Pixel");
     HistoName.str("");
@@ -615,18 +514,6 @@ void Phase2ITValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
     else
       local_mes.primaryDigisPixel = nullptr;
 
-    Parameters = config_.getParameter<edm::ParameterSet>("Primary_Digis_Strip");
-    HistoName.str("");
-    HistoName << "Primary_Digis_Strip";
-    if(Parameters.getParameter<bool>("switch"))
-      local_mes.primaryDigisStrip = ibooker.book1D(HistoName.str(),
-                                              HistoName.str(),
-                                              Parameters.getParameter<int32_t>("NxBins"),
-                                              Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
-    else
-      local_mes.primaryDigisStrip = nullptr;
-
     Parameters = config_.getParameter<edm::ParameterSet>("Other_Digis_Pixel");
     HistoName.str("");
     HistoName << "Other_Digis_Pixel";
@@ -639,77 +526,36 @@ void Phase2ITValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker,
     else
       local_mes.otherDigisPixel = nullptr;
 
-    Parameters = config_.getParameter<edm::ParameterSet>("Other_Digis_Strip");
+    Parameters = config_.getParameter<edm::ParameterSet>("XYGlobalPositionMapH");
     HistoName.str("");
-    HistoName << "Other_Digis_Strip";
+    HistoName << "XvsYGlobalPosPixel";
     if(Parameters.getParameter<bool>("switch"))
-      local_mes.otherDigisStrip = ibooker.book1D(HistoName.str(),
+      local_mes.XYGlobalPositionMapPixel = ibooker.book2D(HistoName.str(),
                                               HistoName.str(),
                                               Parameters.getParameter<int32_t>("NxBins"),
                                               Parameters.getParameter<double>("xmin"),
-                                              Parameters.getParameter<double>("xmax"));
+                                              Parameters.getParameter<double>("xmax"),
+                                              Parameters.getParameter<int32_t>("NyBins"),
+                                              Parameters.getParameter<double>("ymin"),
+                                              Parameters.getParameter<double>("ymax"));
     else
-      local_mes.otherDigisStrip = nullptr;
-    if (1)
-    {
-      Parameters = config_.getParameter<edm::ParameterSet>("XYGlobalPositionMapH");
-      HistoName.str("");
-      HistoName << "XvsYGlobalPosStrip";
-      if(Parameters.getParameter<bool>("switch"))
-        local_mes.XYGlobalPositionMapStrip = ibooker.book2D(HistoName.str(),
-                                                HistoName.str(),
-                                                Parameters.getParameter<int32_t>("NxBins"),
-                                                Parameters.getParameter<double>("xmin"),
-                                                Parameters.getParameter<double>("xmax"),
-                                                Parameters.getParameter<int32_t>("NyBins"),
-                                                Parameters.getParameter<double>("ymin"),
-                                                Parameters.getParameter<double>("ymax"));
-      else
-        local_mes.XYGlobalPositionMapStrip = nullptr;
-      Parameters = config_.getParameter<edm::ParameterSet>("XYGlobalPositionMapH");
-      HistoName.str("");
-      HistoName << "XvsYGlobalPosPixel";
-      if(Parameters.getParameter<bool>("switch"))
-        local_mes.XYGlobalPositionMapPixel = ibooker.book2D(HistoName.str(),
-                                                HistoName.str(),
-                                                Parameters.getParameter<int32_t>("NxBins"),
-                                                Parameters.getParameter<double>("xmin"),
-                                                Parameters.getParameter<double>("xmax"),
-                                                Parameters.getParameter<int32_t>("NyBins"),
-                                                Parameters.getParameter<double>("ymin"),
-                                                Parameters.getParameter<double>("ymax"));
-      else
-        local_mes.XYGlobalPositionMapPixel = nullptr;
+      local_mes.XYGlobalPositionMapPixel = nullptr;
 
-      Parameters = config_.getParameter<edm::ParameterSet>("XYLocalPositionMapH");
-      HistoName.str("");
-      HistoName << "XvsYLocalPosStrip";
-      if(Parameters.getParameter<bool>("switch"))
-        local_mes.XYLocalPositionMapStrip = ibooker.book2D(HistoName.str(),
-                                                HistoName.str(),
-                                                Parameters.getParameter<int32_t>("NxBins"),
-                                                Parameters.getParameter<double>("xmin"),
-                                                Parameters.getParameter<double>("xmax"),
-                                                Parameters.getParameter<int32_t>("NyBins"),
-                                                Parameters.getParameter<double>("ymin"),
-                                                Parameters.getParameter<double>("ymax"));
-      else
-        local_mes.XYLocalPositionMapStrip = nullptr;
-      Parameters = config_.getParameter<edm::ParameterSet>("XYLocalPositionMapH");
-      HistoName.str("");
-      HistoName << "XvsYLocalPosPixel";
-      if(Parameters.getParameter<bool>("switch"))
-        local_mes.XYLocalPositionMapPixel = ibooker.book2D(HistoName.str(),
-                                                HistoName.str(),
-                                                Parameters.getParameter<int32_t>("NxBins"),
-                                                Parameters.getParameter<double>("xmin"),
-                                                Parameters.getParameter<double>("xmax"),
-                                                Parameters.getParameter<int32_t>("NyBins"),
-                                                Parameters.getParameter<double>("ymin"),
-                                                Parameters.getParameter<double>("ymax"));
-      else
-        local_mes.XYLocalPositionMapPixel = nullptr;
-    }
+    Parameters = config_.getParameter<edm::ParameterSet>("XYLocalPositionMapH");
+    HistoName.str("");
+    HistoName << "XvsYLocalPosPixel";
+    if(Parameters.getParameter<bool>("switch"))
+      local_mes.XYLocalPositionMapPixel = ibooker.book2D(HistoName.str(),
+                                              HistoName.str(),
+                                              Parameters.getParameter<int32_t>("NxBins"),
+                                              Parameters.getParameter<double>("xmin"),
+                                              Parameters.getParameter<double>("xmax"),
+                                              Parameters.getParameter<int32_t>("NyBins"),
+                                              Parameters.getParameter<double>("ymin"),
+                                              Parameters.getParameter<double>("ymax"));
+    else
+      local_mes.XYLocalPositionMapPixel = nullptr;
+    
 
     //local_mes.nCluster = 1;
 
