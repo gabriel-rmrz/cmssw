@@ -29,6 +29,9 @@
 namespace edm {
   class WaitingTaskHolder {
   public:
+    friend class WaitingTaskList;
+    friend class WaitingTaskWithArenaHolder;
+
     WaitingTaskHolder() : m_task(nullptr) {}
 
     explicit WaitingTaskHolder(edm::WaitingTask* iTask) : m_task(iTask) { m_task->increment_ref_count(); }
@@ -44,6 +47,12 @@ namespace edm {
 
     WaitingTaskHolder& operator=(const WaitingTaskHolder& iRHS) {
       WaitingTaskHolder tmp(iRHS);
+      std::swap(m_task, tmp.m_task);
+      return *this;
+    }
+
+    WaitingTaskHolder& operator=(WaitingTaskHolder&& iRHS) {
+      WaitingTaskHolder tmp(std::move(iRHS));
       std::swap(m_task, tmp.m_task);
       return *this;
     }
@@ -82,6 +91,11 @@ namespace edm {
     }
 
   private:
+    WaitingTask* release_no_decrement() noexcept {
+      auto t = m_task;
+      m_task = nullptr;
+      return t;
+    }
     // ---------- member data --------------------------------
     WaitingTask* m_task;
   };

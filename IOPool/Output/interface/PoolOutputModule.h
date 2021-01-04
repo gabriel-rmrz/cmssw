@@ -143,7 +143,7 @@ namespace edm {
     virtual void doExtrasAfterCloseFile();
 
   private:
-    void preActionBeforeRunEventAsync(WaitingTask* iTask,
+    void preActionBeforeRunEventAsync(WaitingTaskHolder iTask,
                                       ModuleCallingContext const& iModuleCallingContext,
                                       Principal const& iPrincipal) const override;
 
@@ -202,8 +202,6 @@ namespace edm {
     bool initializedFromInput_;
     int outputFileCount_;
     int inputFileCount_;
-    unsigned int childIndex_;
-    unsigned int numberOfDigitsInIndex_;
     BranchParents branchParents_;
     BranchChildren branchChildren_;
     std::vector<BranchID> producedBranches_;

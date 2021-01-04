@@ -10,13 +10,11 @@
 #include "DetectorDescription/Core/interface/DDFilteredView.h"
 #include "DetectorDescription/Core/interface/DDSolid.h"
 
-#include "Geometry/MuonNumbering/interface/MuonDDDNumbering.h"
+#include "Geometry/MuonNumbering/interface/MuonGeometryNumbering.h"
 #include "Geometry/MuonNumbering/interface/MuonBaseNumber.h"
 #include "Geometry/MuonNumbering/interface/GEMNumberingScheme.h"
 
 #include "DataFormats/GeometryVector/interface/Basic3DVector.h"
-
-#include "CLHEP/Units/GlobalSystemOfUnits.h"
 
 #include <iostream>
 #include <algorithm>
@@ -45,7 +43,7 @@ void GEMGeometryParsFromDD::buildGeometry(DDFilteredView& fv,
   LogDebug("GEMGeometryParsFromDD") << "About to run through the GEM structure\n"
                                     << " First logical part " << fv.logicalPart().name().name();
 
-  MuonDDDNumbering muonDDDNumbering(muonConstants);
+  MuonGeometryNumbering muonDDDNumbering(muonConstants);
   GEMNumberingScheme gemNumbering(muonConstants);
 
   bool doSuper = fv.firstChild();
@@ -146,13 +144,16 @@ void GEMGeometryParsFromDD::buildEtaPartition(DDFilteredView& fv, GEMDetId detId
   // EtaPartition specific parameter (nstrips and npads)
   DDValue numbOfStrips("nStrips");
   DDValue numbOfPads("nPads");
+  DDValue delPhi("dPhi");
   const std::vector<const DDsvalues_type*>& specs = fv.specifics();
-  double nStrips = 0., nPads = 0.;
+  double nStrips = 0., nPads = 0., dPhi = 0.;
   for (auto const& is : specs) {
     if (DDfetch(is, numbOfStrips))
       nStrips = numbOfStrips.doubles()[0];
     if (DDfetch(is, numbOfPads))
       nPads = numbOfPads.doubles()[0];
+    if (DDfetch(is, delPhi))
+      dPhi = delPhi.doubles()[0];
   }
   LogDebug("GEMGeometryParsFromDD") << ((nStrips == 0.) ? ("No nStrips found!!")
                                                         : ("Number of strips: " + std::to_string(nStrips)));
@@ -167,7 +168,7 @@ void GEMGeometryParsFromDD::buildEtaPartition(DDFilteredView& fv, GEMDetId detId
   double dx1 = dpar[4];  // bottom width is along local X
   double dx2 = dpar[8];  // top width is along local X
 
-  std::vector<double> pars{dx1, dx2, dy, dz, nStrips, nPads};
+  std::vector<double> pars{dx1, dx2, dy, dz, nStrips, nPads, dPhi};
   std::vector<double> vtra = getTranslation(fv);
   std::vector<double> vrot = getRotation(fv);
 

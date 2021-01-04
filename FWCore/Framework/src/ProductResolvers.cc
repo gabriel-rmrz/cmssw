@@ -4,11 +4,13 @@
 #include "Worker.h"
 #include "UnscheduledAuxiliary.h"
 #include "UnscheduledConfigurator.h"
+#include "FWCore/Framework/interface/EventPrincipal.h"
 #include "FWCore/Framework/interface/MergeableRunProductMetadata.h"
 #include "FWCore/Framework/interface/Principal.h"
-#include "FWCore/Framework/interface/ProductDeletedException.h"
+#include "FWCore/Framework/src/ProductDeletedException.h"
 #include "FWCore/Framework/interface/SharedResourcesAcquirer.h"
 #include "FWCore/Framework/interface/DelayedReader.h"
+#include "FWCore/Framework/src/TransitionInfoTypes.h"
 #include "DataFormats/Provenance/interface/ProductProvenanceRetriever.h"
 #include "DataFormats/Provenance/interface/BranchKey.h"
 #include "DataFormats/Provenance/interface/ParentageRegistry.h"
@@ -163,17 +165,17 @@ namespace edm {
                                                                         ModuleCallingContext const* mcc) const {
     return resolveProductImpl<true>([this, &principal, mcc]() {
       auto branchType = principal.branchType();
-      if (branchType != InEvent) {
+      if (branchType == InLumi || branchType == InRun) {
         //delayed get has not been allowed with Run or Lumis
         // The file may already be closed so the reader is invalid
         return;
       }
-      if (mcc and (branchType == InEvent) and aux_) {
+      if (mcc and (branchType == InEvent || branchType == InProcess) and aux_) {
         aux_->preModuleDelayedGetSignal_.emit(*(mcc->getStreamContext()), *mcc);
       }
 
       auto sentry(make_sentry(mcc, [this, branchType](ModuleCallingContext const* iContext) {
-        if (branchType == InEvent and aux_) {
+        if ((branchType == InEvent || branchType == InProcess) and aux_) {
           aux_->postModuleDelayedGetSignal_.emit(*(iContext->getStreamContext()), *iContext);
         }
       }));
@@ -241,7 +243,7 @@ namespace edm {
     setMergeableRunProductMetadataInProductData(mrpm);
   }
 
-  void InputProductResolver::prefetchAsync_(WaitingTask* waitTask,
+  void InputProductResolver::prefetchAsync_(WaitingTaskHolder waitTask,
                                             Principal const& principal,
                                             bool skipCurrentProcess,
                                             ServiceToken const& token,
@@ -321,7 +323,7 @@ namespace edm {
     return Resolution(nullptr);
   }
 
-  void PuttableProductResolver::prefetchAsync_(WaitingTask* waitTask,
+  void PuttableProductResolver::prefetchAsync_(WaitingTaskHolder waitTask,
                                                Principal const& principal,
                                                bool skipCurrentProcess,
                                                ServiceToken const& token,
@@ -351,7 +353,7 @@ namespace edm {
             m_waitingTasks.doneWaiting(std::exception_ptr());
           }
         });
-        worker_->callWhenDoneAsync(waiting);
+        worker_->callWhenDoneAsync(WaitingTaskHolder(waiting));
       }
     }
   }
@@ -379,27 +381,26 @@ namespace edm {
   void UnscheduledProductResolver::setupUnscheduled(UnscheduledConfigurator const& iConfigure) {
     aux_ = iConfigure.auxiliary();
     worker_ = iConfigure.findWorker(branchDescription().moduleLabel());
-    assert(worker_ != nullptr);
   }
 
-  ProductResolverBase::Resolution UnscheduledProductResolver::resolveProduct_(Principal const& principal,
+  ProductResolverBase::Resolution UnscheduledProductResolver::resolveProduct_(Principal const&,
                                                                               bool skipCurrentProcess,
                                                                               SharedResourcesAcquirer* sra,
                                                                               ModuleCallingContext const* mcc) const {
     if (!skipCurrentProcess and worker_) {
-      return resolveProductImpl<true>([&principal, this, sra, mcc]() {
+      return resolveProductImpl<true>([this, sra, mcc]() {
         try {
-          auto const& event = static_cast<EventPrincipal const&>(principal);
           ParentContext parentContext(mcc);
           aux_->preModuleDelayedGetSignal_.emit(*(mcc->getStreamContext()), *mcc);
 
-          auto workCall = [this, &event, &parentContext, mcc]() {
+          auto workCall = [this, &parentContext, mcc]() {
             auto sentry(make_sentry(mcc, [this](ModuleCallingContext const* iContext) {
               aux_->postModuleDelayedGetSignal_.emit(*(iContext->getStreamContext()), *iContext);
             }));
 
+            EventTransitionInfo const& info = aux_->eventTransitionInfo();
             worker_->doWork<OccurrenceTraits<EventPrincipal, BranchActionStreamBegin> >(
-                event, *(aux_->eventSetup()), event.streamID(), parentContext, mcc->getStreamContext());
+                info, info.principal().streamID(), parentContext, mcc->getStreamContext());
           };
 
           if (sra) {
@@ -410,8 +411,8 @@ namespace edm {
 
         } catch (cms::Exception& ex) {
           std::ostringstream ost;
-          ost << "Calling produce method for unscheduled module " << worker_->description().moduleName() << "/'"
-              << worker_->description().moduleLabel() << "'";
+          ost << "Calling produce method for unscheduled module " << worker_->description()->moduleName() << "/'"
+              << worker_->description()->moduleLabel() << "'";
           ex.addContext(ost.str());
           throw;
         }
@@ -420,7 +421,7 @@ namespace edm {
     return Resolution(nullptr);
   }
 
-  void UnscheduledProductResolver::prefetchAsync_(WaitingTask* waitTask,
+  void UnscheduledProductResolver::prefetchAsync_(WaitingTaskHolder waitTask,
                                                   Principal const& principal,
                                                   bool skipCurrentProcess,
                                                   ServiceToken const& token,
@@ -428,6 +429,10 @@ namespace edm {
                                                   ModuleCallingContext const* mcc) const {
     if (skipCurrentProcess) {
       return;
+    }
+    if (worker_ == nullptr) {
+      throw cms::Exception("LogicError") << "UnscheduledProductResolver::prefetchAsync_()  called with null worker_. "
+                                            "This should not happen, please contact framework developers.";
     }
     //need to try changing prefetchRequested_ before adding to waitingTasks_
     bool expected = false;
@@ -452,11 +457,11 @@ namespace edm {
         }
         waitingTasks_.doneWaiting(nullptr);
       });
-      auto const& event = static_cast<EventPrincipal const&>(principal);
-      ParentContext parentContext(mcc);
 
+      ParentContext parentContext(mcc);
+      EventTransitionInfo const& info = aux_->eventTransitionInfo();
       worker_->doWorkAsync<OccurrenceTraits<EventPrincipal, BranchActionStreamBegin> >(
-          t, event, *(aux_->eventSetup()), token, event.streamID(), parentContext, mcc->getStreamContext());
+          WaitingTaskHolder(t), info, token, info.principal().streamID(), parentContext, mcc->getStreamContext());
     }
   }
 
@@ -690,7 +695,7 @@ namespace edm {
     return Resolution(nullptr);
   }
 
-  void SwitchProducerProductResolver::prefetchAsync_(WaitingTask* waitTask,
+  void SwitchProducerProductResolver::prefetchAsync_(WaitingTaskHolder waitTask,
                                                      Principal const& principal,
                                                      bool skipCurrentProcess,
                                                      ServiceToken const& token,
@@ -721,7 +726,7 @@ namespace edm {
           waitingTasks().doneWaiting(std::exception_ptr());
         }
       });
-      worker()->callWhenDoneAsync(waiting);
+      worker()->callWhenDoneAsync(WaitingTaskHolder(waiting));
     }
   }
 
@@ -763,7 +768,7 @@ namespace edm {
     return resolveProductImpl(realProduct().resolveProduct(principal, skipCurrentProcess, sra, mcc));
   }
 
-  void SwitchAliasProductResolver::prefetchAsync_(WaitingTask* waitTask,
+  void SwitchAliasProductResolver::prefetchAsync_(WaitingTaskHolder waitTask,
                                                   Principal const& principal,
                                                   bool skipCurrentProcess,
                                                   ServiceToken const& token,
@@ -791,7 +796,7 @@ namespace edm {
           waitingTasks().doneWaiting(std::exception_ptr());
         }
       });
-      realProduct().prefetchAsync(waiting, principal, skipCurrentProcess, token, sra, mcc);
+      realProduct().prefetchAsync(WaitingTaskHolder(waiting), principal, skipCurrentProcess, token, sra, mcc);
     }
   }
 
@@ -919,7 +924,7 @@ namespace edm {
     return Resolution(nullptr);
   }
 
-  void NoProcessProductResolver::prefetchAsync_(WaitingTask* waitTask,
+  void NoProcessProductResolver::prefetchAsync_(WaitingTaskHolder waitTask,
                                                 Principal const& principal,
                                                 bool skipCurrentProcess,
                                                 ServiceToken const& token,
@@ -1055,16 +1060,13 @@ namespace edm {
 
         auto task = new (tbb::task::allocate_root())
             TryNextResolverWaitingTask(this, index, &principal, sra, mcc, skipCurrentProcess, token);
-        task->increment_ref_count();
+        WaitingTaskHolder hTask(task);
         ProductResolverBase const* productResolver = principal.getProductResolverByIndex(matchingHolders_[k]);
 
         //Make sure the Services are available on this thread
         ServiceRegistry::Operate guard(token);
 
-        productResolver->prefetchAsync(task, principal, skipCurrentProcess, token, sra, mcc);
-        if (0 == task->decrement_ref_count()) {
-          tbb::task::spawn(*task);
-        }
+        productResolver->prefetchAsync(hTask, principal, skipCurrentProcess, token, sra, mcc);
         return;
       }
       ++index;
@@ -1176,7 +1178,7 @@ namespace edm {
         ->resolveProduct(principal, skipCurrentProcess, sra, mcc);
   }
 
-  void SingleChoiceNoProcessProductResolver::prefetchAsync_(WaitingTask* waitTask,
+  void SingleChoiceNoProcessProductResolver::prefetchAsync_(WaitingTaskHolder waitTask,
                                                             Principal const& principal,
                                                             bool skipCurrentProcess,
                                                             ServiceToken const& token,

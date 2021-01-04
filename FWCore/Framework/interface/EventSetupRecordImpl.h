@@ -40,6 +40,7 @@ through the 'validityInterval' method.
 #include "FWCore/Framework/interface/NoProxyException.h"
 #include "FWCore/Framework/interface/ValidityInterval.h"
 #include "FWCore/Framework/interface/EventSetupRecordKey.h"
+#include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
 #include "FWCore/Utilities/interface/thread_safety_macros.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
 #include "FWCore/Utilities/interface/ESInputTag.h"
@@ -57,7 +58,7 @@ through the 'validityInterval' method.
 // forward declarations
 namespace cms {
   class Exception;
-}
+}  // namespace cms
 
 namespace edm {
 
@@ -65,6 +66,7 @@ namespace edm {
   class ESHandleExceptionFactory;
   class ESInputTag;
   class EventSetupImpl;
+  class ServiceToken;
 
   namespace eventsetup {
     struct ComponentDescription;
@@ -82,8 +84,11 @@ namespace edm {
 
       ValidityInterval validityInterval() const;
 
-      ///returns false if no data available for key
-      bool doGet(DataKey const& aKey, EventSetupImpl const*, bool aGetTransiently = false) const;
+      ///prefetch the data to setup for subsequent calls to getImplementation
+      void prefetchAsync(WaitingTaskHolder iTask,
+                         ESProxyIndex iProxyIndex,
+                         EventSetupImpl const*,
+                         ServiceToken const&) const;
 
       /**returns true only if someone has already requested data for this key
           and the data was retrieved
@@ -161,6 +166,11 @@ namespace edm {
                                DataKey const*& oGottenKey,
                                EventSetupImpl const* = nullptr) const;
 
+      void const* getFromProxyAfterPrefetch(ESProxyIndex iProxyIndex,
+                                            bool iTransientAccessOnly,
+                                            ComponentDescription const*& iDesc,
+                                            DataKey const*& oGottenKey) const;
+
       template <typename DataT>
       void getImplementation(DataT const*& iData,
                              char const* iName,
@@ -198,7 +208,7 @@ namespace edm {
         }
         assert(iProxyIndex.value() > -1 and
                iProxyIndex.value() < static_cast<ESProxyIndex::Value_t>(keysForProxies_.size()));
-        void const* pValue = this->getFromProxy(iProxyIndex, iTransientAccessOnly, oDesc, dataKey, iEventSetupImpl);
+        void const* pValue = this->getFromProxyAfterPrefetch(iProxyIndex, iTransientAccessOnly, oDesc, dataKey);
         if (nullptr == pValue) {
           whyFailedFactory = makeESHandleExceptionFactory([=] {
             NoProxyException<DataT> ex(this->key(), *dataKey);

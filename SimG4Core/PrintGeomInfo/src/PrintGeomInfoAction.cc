@@ -5,6 +5,7 @@
 
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/ESTransientHandle.h"
+#include "DataFormats/Math/interface/angle_units.h"
 #include "Geometry/Records/interface/IdealGeometryRecord.h"
 #include "DetectorDescription/Core/interface/DDCompactView.h"
 #include "DetectorDescription/Core/interface/DDFilter.h"
@@ -14,6 +15,8 @@
 #include "DetectorDescription/Core/interface/DDValue.h"
 #include "DetectorDescription/DDCMS/interface/DDCompactView.h"
 #include "DetectorDescription/DDCMS/interface/DDFilteredView.h"
+
+#include <DD4hep/DD4hepUnits.h>
 
 #include "G4Run.hh"
 #include "G4PhysicalVolumeStore.hh"
@@ -30,6 +33,8 @@
 #include <set>
 #include <map>
 
+using angle_units::operators::convertRadToDeg;
+
 PrintGeomInfoAction::PrintGeomInfoAction(const edm::ParameterSet &p) {
   dumpSummary_ = p.getUntrackedParameter<bool>("DumpSummary", true);
   dumpLVTree_ = p.getUntrackedParameter<bool>("DumpLVTree", true);
@@ -45,7 +50,7 @@ PrintGeomInfoAction::PrintGeomInfoAction(const edm::ParameterSet &p) {
   dumpSense_ = p.getUntrackedParameter<bool>("DumpSense", false);
   dd4hep_ = p.getUntrackedParameter<bool>("DD4Hep", false);
   name_ = p.getUntrackedParameter<std::string>("Name", "*");
-  nchar_ = name_.find("*");
+  nchar_ = name_.find('*');
   name_.assign(name_, 0, nchar_);
   names_ = p.getUntrackedParameter<std::vector<std::string> >("Names");
   G4cout << "PrintGeomInfoAction:: initialised for dd4hep " << dd4hep_ << " with verbosity levels:"
@@ -78,18 +83,19 @@ void PrintGeomInfoAction::update(const BeginOfJob *job) {
         const cms::DDFilter filter("ReadOutName", sd);
         cms::DDFilteredView fv(*pDD, filter);
         G4cout << "PrintGeomInfoAction:: Get Filtered view for ReadOutName = " << sd << G4endl;
+        G4cout << "Lengths are in mm, angles in degrees" << G4endl;
 
         std::string spaces = spacesFromLeafDepth(1);
 
         while (fv.firstChild()) {
-          auto tran = fv.translation();
+          auto tran = fv.translation() / dd4hep::mm;
           std::vector<int> copy = fv.copyNos();
           auto lvname = fv.name();
           unsigned int leafDepth = copy.size();
           G4cout << leafDepth << spaces << "### VOLUME = " << lvname << " Copy No";
           for (unsigned int k = 0; k < leafDepth; ++k)
             G4cout << " " << copy[k];
-          G4cout << " Centre at " << tran << " (r = " << tran.Rho() << ", phi = " << tran.phi() / CLHEP::deg << ")"
+          G4cout << " Centre at " << tran << " (r = " << tran.Rho() << ", phi = " << convertRadToDeg(tran.phi()) << ")"
                  << G4endl;
         }
       }
@@ -105,6 +111,7 @@ void PrintGeomInfoAction::update(const BeginOfJob *job) {
         DDSpecificsMatchesValueFilter filter{DDValue(attribute, sd, 0)};
         DDFilteredView fv(*pDD, filter);
         G4cout << "PrintGeomInfoAction:: Get Filtered view for " << attribute << " = " << sd << G4endl;
+        G4cout << "Lengths are in mm, angles in degrees" << G4endl;
         bool dodet = fv.firstChild();
 
         std::string spaces = spacesFromLeafDepth(1);
@@ -119,7 +126,7 @@ void PrintGeomInfoAction::update(const BeginOfJob *job) {
           G4cout << leafDepth << spaces << "### VOLUME = " << lvname << " Copy No";
           for (int k = leafDepth - 1; k >= 0; k--)
             G4cout << " " << copy[k];
-          G4cout << " Centre at " << tran << " (r = " << tran.Rho() << ", phi = " << tran.phi() / CLHEP::deg << ")"
+          G4cout << " Centre at " << tran << " (r = " << tran.Rho() << ", phi = " << convertRadToDeg(tran.phi()) << ")"
                  << G4endl;
           dodet = fv.next();
         }
@@ -388,7 +395,7 @@ void PrintGeomInfoAction::dumpTouch(G4VPhysicalVolume *pv, unsigned int leafDept
   if (lvname == name_)
     out << leafDepth << spaces << "### VOLUME = " << lv->GetName() << " Copy No " << pv->GetCopyNo() << " in " << mother
         << " global position of centre " << globalpoint << " (r = " << globalpoint.perp()
-        << ", phi = " << globalpoint.phi() / CLHEP::deg << ")" << G4endl;
+        << ", phi = " << convertRadToDeg(globalpoint.phi()) << ")" << G4endl;
 
   int NoDaughters = lv->GetNoDaughters();
   while ((NoDaughters--) > 0) {

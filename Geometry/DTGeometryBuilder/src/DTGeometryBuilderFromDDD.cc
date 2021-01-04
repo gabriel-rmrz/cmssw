@@ -12,13 +12,12 @@
 #include <DetectorDescription/Core/interface/DDFilteredView.h>
 #include <DetectorDescription/Core/interface/DDSolid.h>
 #include "DataFormats/Math/interface/GeantUnits.h"
-#include "Geometry/MuonNumbering/interface/MuonDDDNumbering.h"
+#include "Geometry/MuonNumbering/interface/MuonGeometryNumbering.h"
 #include "Geometry/MuonNumbering/interface/MuonBaseNumber.h"
 #include "Geometry/MuonNumbering/interface/DTNumberingScheme.h"
 #include "DataFormats/MuonDetId/interface/DTChamberId.h"
-
 #include "DataFormats/GeometrySurface/interface/RectangularPlaneBounds.h"
-
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include <string>
 
 using namespace std;
@@ -54,6 +53,8 @@ void DTGeometryBuilderFromDDD::build(DTGeometry& theGeometry,
 void DTGeometryBuilderFromDDD::buildGeometry(DTGeometry& theGeometry,
                                              DDFilteredView& fv,
                                              const MuonGeometryConstants& muonConstants) const {
+  edm::LogVerbatim("DTGeometryBuilder") << "(0) DTGeometryBuilder - DDD ";
+
   bool doChamber = fv.firstChild();
 
   // Loop on chambers
@@ -105,7 +106,7 @@ void DTGeometryBuilderFromDDD::buildGeometry(DTGeometry& theGeometry,
 DTChamber* DTGeometryBuilderFromDDD::buildChamber(DDFilteredView& fv,
                                                   const string& type,
                                                   const MuonGeometryConstants& muonConstants) const {
-  MuonDDDNumbering mdddnum(muonConstants);
+  MuonGeometryNumbering mdddnum(muonConstants);
   DTNumberingScheme dtnum(muonConstants);
   int rawid = dtnum.getDetId(mdddnum.geoHistoryToBaseNumber(fv.geoHistory()));
   DTChamberId detId(rawid);
@@ -119,6 +120,9 @@ DTChamber* DTGeometryBuilderFromDDD::buildChamber(DDFilteredView& fv,
   // length is along local Y. z      dimension - constant 125.55 cm
   // thickness is long local Z. radial thickness - almost constant about 18 cm
 
+  edm::LogVerbatim("DTGeometryBuilder") << "(1) detId: " << rawid << " par[0]: " << par[0] << " par[1]: " << par[1]
+                                        << " par[2]: " << par[2];
+
   RCPPlane surf(plane(fv, dtGeometryBuilder::getRecPlaneBounds(par.begin())));
 
   DTChamber* chamber = new DTChamber(detId, surf);
@@ -130,13 +134,16 @@ DTSuperLayer* DTGeometryBuilderFromDDD::buildSuperLayer(DDFilteredView& fv,
                                                         DTChamber* chamber,
                                                         const std::string& type,
                                                         const MuonGeometryConstants& muonConstants) const {
-  MuonDDDNumbering mdddnum(muonConstants);
+  MuonGeometryNumbering mdddnum(muonConstants);
   DTNumberingScheme dtnum(muonConstants);
   int rawid = dtnum.getDetId(mdddnum.geoHistoryToBaseNumber(fv.geoHistory()));
   DTSuperLayerId slId(rawid);
 
   // Slayer specific parameter (size)
   vector<double> par = extractParameters(fv);
+
+  edm::LogVerbatim("DTGeometryBuilder") << "(2) detId: " << rawid << " par[0]: " << par[0] << " par[1]: " << par[1]
+                                        << " par[2]: " << par[2];
 
   // r-phi  dimension - different in different chambers
   // z      dimension - constant 126.8 cm
@@ -159,7 +166,7 @@ DTLayer* DTGeometryBuilderFromDDD::buildLayer(DDFilteredView& fv,
                                               DTSuperLayer* sl,
                                               const std::string& type,
                                               const MuonGeometryConstants& muonConstants) const {
-  MuonDDDNumbering mdddnum(muonConstants);
+  MuonGeometryNumbering mdddnum(muonConstants);
   DTNumberingScheme dtnum(muonConstants);
   int rawid = dtnum.getDetId(mdddnum.geoHistoryToBaseNumber(fv.geoHistory()));
   DTLayerId layId(rawid);
@@ -172,12 +179,20 @@ DTLayer* DTGeometryBuilderFromDDD::buildLayer(DDFilteredView& fv,
 
   RCPPlane surf(plane(fv, dtGeometryBuilder::getRecPlaneBounds(par.begin())));
 
+  edm::LogVerbatim("DTGeometryBuilder") << "(3) detId: " << rawid << " par[0]: " << par[0] << " par[1]: " << par[1]
+                                        << " par[2]: " << par[2];
+
   // Loop on wires
   bool doWire = fv.firstChild();
   int WCounter = 0;
   int firstWire = fv.copyno();
   par = extractParameters(fv);
   float wireLength = convertMmToCm(par[1]);
+
+  edm::LogVerbatim("DTGeometryBuilder") << "(4) detId: " << rawid
+                                        << " wireLenght in ddd, wpar[1] in dd4hep: " << wireLength
+                                        << " firstWire: " << firstWire;
+
   while (doWire) {
     WCounter++;
     doWire = fv.nextSibling();  // next wire

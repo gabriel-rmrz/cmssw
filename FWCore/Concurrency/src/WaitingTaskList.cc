@@ -16,8 +16,10 @@
 // user include files
 #include "tbb/task.h"
 #include <cassert>
+#include <memory>
 
 #include "FWCore/Concurrency/interface/WaitingTaskList.h"
+#include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
 #include "FWCore/Concurrency/interface/hardware_pause.h"
 #include "FWCore/Utilities/interface/Likely.h"
 
@@ -57,7 +59,7 @@ void WaitingTaskList::reset() {
     //need to expand so next time we don't have to do any
     // memory requests
     m_nodeCacheSize = nSeenTasks;
-    m_nodeCache.reset(new WaitNode[nSeenTasks]);
+    m_nodeCache = std::make_unique<WaitNode[]>(nSeenTasks);
     auto nodeCache = m_nodeCache.get();
     for (auto it = nodeCache, itEnd = nodeCache + m_nodeCacheSize; it != itEnd; ++it) {
       it->m_fromCache = true;
@@ -84,6 +86,39 @@ WaitingTaskList::WaitNode* WaitingTaskList::createNode(WaitingTask* iTask) {
   returnValue->m_next.store(returnValue, std::memory_order_relaxed);
 
   return returnValue;
+}
+
+void WaitingTaskList::add(WaitingTaskHolder iTask) {
+  if (!m_waiting) {
+    if (m_exceptionPtr) {
+      iTask.doneWaiting(m_exceptionPtr);
+    }
+  } else {
+    auto task = iTask.release_no_decrement();
+    WaitNode* newHead = createNode(task);
+    //This exchange is sequentially consistent thereby
+    // ensuring ordering between it and setNextNode
+    WaitNode* oldHead = m_head.exchange(newHead);
+    newHead->setNextNode(oldHead);
+
+    //For the case where oldHead != nullptr,
+    // even if 'm_waiting' changed, we don't
+    // have to recheck since we beat 'announce()' in
+    // the ordering of 'm_head.exchange' call so iTask
+    // is guaranteed to be in the link list
+
+    if (nullptr == oldHead) {
+      newHead->setNextNode(nullptr);
+      if (!m_waiting) {
+        //if finished waiting right before we did the
+        // exchange our task will not be spawned. Also,
+        // additional threads may be calling add() and swapping
+        // heads and linking us to the new head.
+        // It is safe to call announce from multiple threads
+        announce();
+      }
+    }
+  }
 }
 
 void WaitingTaskList::add(WaitingTask* iTask) {

@@ -4,11 +4,10 @@
 #include "DetectorDescription/Core/interface/DDFilter.h"
 #include "DetectorDescription/Core/interface/DDFilteredView.h"
 #include "DetectorDescription/Core/interface/DDSolid.h"
-#include "Geometry/MuonNumbering/interface/MuonDDDNumbering.h"
+#include "Geometry/MuonNumbering/interface/MuonGeometryNumbering.h"
 #include "Geometry/MuonNumbering/interface/MuonBaseNumber.h"
 #include "Geometry/MuonNumbering/interface/ME0NumberingScheme.h"
 #include "DataFormats/GeometryVector/interface/Basic3DVector.h"
-#include "CLHEP/Units/GlobalSystemOfUnits.h"
 
 void ME0GeometryParsFromDD::build(const DDCompactView* cview,
                                   const MuonGeometryConstants& muonConstants,
@@ -30,7 +29,7 @@ void ME0GeometryParsFromDD::buildGeometry(DDFilteredView& fv,
   LogDebug("ME0GeometryParsFromDD") << "About to run through the ME0 structure\n"
                                     << " First logical part " << fv.logicalPart().name().name();
 
-  MuonDDDNumbering muonDDDNumbering(muonConstants);
+  MuonGeometryNumbering muonDDDNumbering(muonConstants);
   ME0NumberingScheme me0Numbering(muonConstants);
 
   bool doChambers = fv.firstChild();

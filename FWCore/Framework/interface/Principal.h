@@ -26,6 +26,7 @@ pointer to a ProductResolver, when queried.
 #include "DataFormats/Provenance/interface/ProvenanceFwd.h"
 #include "FWCore/Framework/interface/Frameworkfwd.h"
 #include "FWCore/Framework/interface/ProductResolverBase.h"
+#include "FWCore/Concurrency/interface/WaitingTaskHolder.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/ProductKindOfType.h"
 #include "FWCore/Utilities/interface/propagate_const.h"
@@ -47,7 +48,6 @@ namespace edm {
   class EDConsumerBase;
   class SharedResourcesAcquirer;
   class InputProductResolver;
-  class WaitingTask;
   class UnscheduledConfigurator;
 
   struct FilledProductPtr {
@@ -80,7 +80,9 @@ namespace edm {
 
     void adjustIndexesAfterProductRegistryAddition();
 
+    void fillPrincipal(DelayedReader* reader);
     void fillPrincipal(ProcessHistoryID const& hist, ProcessHistory const* phr, DelayedReader* reader);
+    void fillPrincipal(std::string const& processNameOfBlock, DelayedReader* reader);
 
     void clearPrincipal();
 
@@ -124,7 +126,7 @@ namespace edm {
                            SharedResourcesAcquirer* sra,
                            ModuleCallingContext const* mcc) const;
 
-    void prefetchAsync(WaitingTask* waitTask,
+    void prefetchAsync(WaitingTaskHolder waitTask,
                        ProductResolverIndex index,
                        bool skipCurrentProcess,
                        ServiceToken const& token,
@@ -230,10 +232,14 @@ namespace edm {
     void addParentProcessProduct(std::shared_ptr<BranchDescription const> bd);
 
     WrapperBase const* getIt(ProductID const&) const override;
-    WrapperBase const* getThinnedProduct(ProductID const&, unsigned int&) const override;
+    std::optional<std::tuple<WrapperBase const*, unsigned int>> getThinnedProduct(ProductID const&,
+                                                                                  unsigned int) const override;
     void getThinnedProducts(ProductID const&,
                             std::vector<WrapperBase const*>&,
                             std::vector<unsigned int>&) const override;
+    OptionalThinnedKey getThinnedKeyFrom(ProductID const& parent,
+                                         unsigned int key,
+                                         ProductID const& thinned) const override;
 
     void findProducts(std::vector<ProductResolverBase const*> const& holders,
                       TypeID const& typeID,

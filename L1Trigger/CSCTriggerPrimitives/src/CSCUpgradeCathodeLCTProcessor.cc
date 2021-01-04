@@ -10,14 +10,13 @@ CSCUpgradeCathodeLCTProcessor::CSCUpgradeCathodeLCTProcessor(unsigned endcap,
                                                              unsigned chamber,
                                                              const edm::ParameterSet& conf)
     : CSCCathodeLCTProcessor(endcap, station, sector, subsector, chamber, conf) {
-  if (!isSLHC_)
+  if (!runPhase2_)
     edm::LogError("CSCUpgradeCathodeLCTProcessor|ConfigError")
-        << "+++ Upgrade CSCUpgradeCathodeLCTProcessor constructed while isSLHC_ is not set! +++\n";
+        << "+++ Upgrade CSCUpgradeCathodeLCTProcessor constructed while runPhase2_ is not set! +++\n";
 
   // use of localized dead-time zones
   use_dead_time_zoning = clctParams_.getParameter<bool>("useDeadTimeZoning");
   clct_state_machine_zone = clctParams_.getParameter<unsigned int>("clctStateMachineZone");
-  dynamic_state_machine_zone = clctParams_.getParameter<bool>("useDynamicStateMachineZone");
 
   // how far away may trigger happen from pretrigger
   pretrig_trig_zone = clctParams_.getParameter<unsigned int>("clctPretriggerTriggerZone");
@@ -27,24 +26,24 @@ CSCUpgradeCathodeLCTProcessor::CSCUpgradeCathodeLCTProcessor(unsigned endcap,
 }
 
 CSCUpgradeCathodeLCTProcessor::CSCUpgradeCathodeLCTProcessor() : CSCCathodeLCTProcessor() {
-  if (!isSLHC_)
+  if (!runPhase2_)
     edm::LogError("CSCUpgradeCathodeLCTProcessor|ConfigError")
-        << "+++ Upgrade CSCUpgradeCathodeLCTProcessor constructed while isSLHC_ is not set! +++\n";
+        << "+++ Upgrade CSCUpgradeCathodeLCTProcessor constructed while runPhase2_ is not set! +++\n";
 }
 
 // --------------------------------------------------------------------------
-// The code below is for SLHC studies of the CLCT algorithm (half-strips only).
+// The code below is for Phase2 studies of the CLCT algorithm (half-strips only).
 // --------------------------------------------------------------------------
 
-// SLHC version, add the feature of localized dead time zone for pretrigger
+// Phase2 version, add the feature of localized dead time zone for pretrigger
 bool CSCUpgradeCathodeLCTProcessor::preTrigger(const PulseArray pulse, const int start_bx, int& first_bx) {
-  if (isSLHC_ and !use_dead_time_zoning) {
+  if (runPhase2_ and !use_dead_time_zoning) {
     return CSCCathodeLCTProcessor::preTrigger(pulse, start_bx, first_bx);
   }
 
   if (infoV > 1)
     LogTrace("CSCUpgradeCathodeLCTProcessor")
-        << "....................PreTrigger, SLHC version with localized dead time zone...........................";
+        << "....................PreTrigger, Phase2 version with localized dead time zone...........................";
 
   // Max. number of half-strips for this chamber.
   const int nStrips = 2 * numStrips + 1;
@@ -135,13 +134,13 @@ bool CSCUpgradeCathodeLCTProcessor::preTrigger(const PulseArray pulse, const int
     LogTrace("CSCUpgradeCathodeLCTProcessor") << "no pretrigger, returning \n";
   first_bx = fifo_tbins;
   return false;
-}  // preTrigger -- SLHC version.
+}  // preTrigger -- Phase2 version.
 
-// SLHC version.
+// Phase2 version.
 std::vector<CSCCLCTDigi> CSCUpgradeCathodeLCTProcessor::findLCTs(
     const std::vector<int> halfstrip[CSCConstants::NUM_LAYERS][CSCConstants::NUM_HALF_STRIPS_7CFEBS]) {
   // run the original algorithm in case we do not use dead time zoning
-  if (isSLHC_ and !use_dead_time_zoning) {
+  if (runPhase2_ and !use_dead_time_zoning) {
     return CSCCathodeLCTProcessor::findLCTs(halfstrip);
   }
 
@@ -272,21 +271,20 @@ std::vector<CSCCLCTDigi> CSCUpgradeCathodeLCTProcessor::findLCTs(
 
       // If 1st best CLCT is found, look for the 2nd best.
       if (best_halfstrip[0] >= 0) {
-        for (int ilct = 1; ilct < CSCConstants::MAX_CLCTS_PER_PROCESSOR; ilct++) {
-          // Mark keys near best CLCT as busy by setting their quality to zero, and repeat the search.
-          markBusyKeys(best_halfstrip[ilct - 1], best_pid[best_halfstrip[ilct - 1]], quality);
+        // Mark keys near best CLCT as busy by setting their quality to zero, and repeat the search.
+        markBusyKeys(best_halfstrip[0], best_pid[best_halfstrip[0]], quality);
 
-          for (int hstrip = stagger[CSCConstants::KEY_CLCT_LAYER - 1]; hstrip < maxHalfStrips; hstrip++) {
-            if (quality[hstrip] > best_quality[ilct] && pretrig_zone[hstrip] && !busyMap[hstrip][first_bx]) {
-              best_halfstrip[ilct] = hstrip;
-              best_quality[ilct] = quality[hstrip];
-              if (infoV > 1) {
-                LogTrace("CSCCathodeLCTProcessor")
-                    << "CLCT " << ilct + 1 << ": halfstrip = " << std::setw(3) << hstrip
-                    << " quality = " << std::setw(3) << quality[hstrip] << " nhits = " << std::setw(3) << nhits[hstrip]
-                    << " pid = " << std::setw(3) << best_pid[hstrip] << " best halfstrip = " << std::setw(3)
-                    << best_halfstrip[ilct] << " best quality = " << std::setw(3) << best_quality[ilct];
-              }
+        for (int hstrip = stagger[CSCConstants::KEY_CLCT_LAYER - 1]; hstrip < maxHalfStrips; hstrip++) {
+          if (quality[hstrip] > best_quality[1] && pretrig_zone[hstrip] && !busyMap[hstrip][first_bx])
+          //!busyMap[hstrip][latch_bx] )
+          {
+            best_halfstrip[1] = hstrip;
+            best_quality[1] = quality[hstrip];
+            if (infoV > 1) {
+              LogTrace("CSCUpgradeCathodeLCTProcessor")
+                  << " 2nd CLCT: halfstrip = " << std::setw(3) << hstrip << " quality = " << std::setw(3)
+                  << quality[hstrip] << " best halfstrip = " << std::setw(3) << best_halfstrip[1]
+                  << " best quality = " << std::setw(3) << best_quality[1];
             }
           }
         }
@@ -329,13 +327,18 @@ std::vector<CSCCLCTDigi> CSCUpgradeCathodeLCTProcessor::findLCTs(
             thisLCT.setFullBX(fbx);
 
             // get the comparator hits for this pattern
-            auto compHits = hits_in_patterns[best_hs][keystrip_data[ilct][CLCT_PATTERN]];
-
-            // purge the comparator digi collection from the obsolete "65535" entries...
-            cleanComparatorContainer(compHits);
+            const auto& compHits = hits_in_patterns[best_hs][keystrip_data[ilct][CLCT_PATTERN]];
 
             // set the hit collection
             thisLCT.setHits(compHits);
+
+            // do the CCLUT procedures
+            if (runCCLUT_) {
+              runCCLUT(thisLCT);
+            }
+
+            // purge the comparator digi collection from the obsolete "65535" entries...
+            cleanComparatorContainer(thisLCT);
 
             // put the CLCT into the collection
             lctList.push_back(thisLCT);
@@ -351,4 +354,4 @@ std::vector<CSCCLCTDigi> CSCUpgradeCathodeLCTProcessor::findLCTs(
   }
 
   return lctList;
-}  // findLCTs -- SLHC version.
+}  // findLCTs -- Phase2 version.
