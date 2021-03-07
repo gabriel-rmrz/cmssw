@@ -65,10 +65,26 @@ private:
     MonitorElement* deltaX_P = nullptr;
     MonitorElement* deltaY_S = nullptr;
     MonitorElement* deltaY_P = nullptr;
+    MonitorElement* pullX_S = nullptr;
+    MonitorElement* pullX_P = nullptr;
+    MonitorElement* pullY_S = nullptr;
+    MonitorElement* pullY_P = nullptr;
+    MonitorElement* deltaX_eta_S = nullptr;
+    MonitorElement* deltaX_eta_P = nullptr;
+    MonitorElement* deltaY_eta_S = nullptr;
+    MonitorElement* deltaY_eta_P = nullptr;
+    MonitorElement* pullX_eta_S = nullptr;
+    MonitorElement* pullX_eta_P = nullptr;
+    MonitorElement* pullY_eta_S = nullptr;
+    MonitorElement* pullY_eta_P = nullptr;
     MonitorElement* deltaX_P_primary = nullptr;
     MonitorElement* deltaY_P_primary = nullptr;
     MonitorElement* deltaX_S_primary = nullptr;
     MonitorElement* deltaY_S_primary = nullptr;
+    MonitorElement* pullX_P_primary = nullptr;
+    MonitorElement* pullY_P_primary = nullptr;
+    MonitorElement* pullX_S_primary = nullptr;
+    MonitorElement* pullY_S_primary = nullptr;
   };
 
   void fillOTHistos(const edm::Event& iEvent,
@@ -229,6 +245,11 @@ void Phase2OTValidateCluster::fillOTHistos(const edm::Event& iEvent,
       Local3DPoint localPosSimHit(closestSimHit->localPosition());
       const float deltaX = localPosCluster.x() - localPosSimHit.x();
       const float deltaY = localPosCluster.y() - localPosSimHit.y();
+      
+      const double pullX = 1;//deltaX / clusterItr.getSplitClusterErrorX();
+      const double pullY = 1;//deltaY / clusterItr.getSplitClusterErrorY();
+
+      float eta = geomDetUnit->surface().toGlobal(localPosCluster).eta();
 
       auto layerMEit = layerMEs_.find(folderkey);
       if (layerMEit == layerMEs_.end())
@@ -238,18 +259,34 @@ void Phase2OTValidateCluster::fillOTHistos(const edm::Event& iEvent,
       if (mType == TrackerGeometry::ModuleType::Ph2PSP) {
         local_mes.deltaX_P->Fill(deltaX);
         local_mes.deltaY_P->Fill(deltaY);
+        local_mes.pullX_P->Fill(pullX);
+        local_mes.pullY_P->Fill(pullY);
+        local_mes.deltaX_eta_P->Fill(eta, deltaX);
+        local_mes.deltaY_eta_P->Fill(eta, deltaY);
+        local_mes.pullX_eta_P->Fill(eta, pullX);
+        local_mes.pullY_eta_P->Fill(eta, pullY);
       } else if (mType == TrackerGeometry::ModuleType::Ph2PSS || mType == TrackerGeometry::ModuleType::Ph2SS) {
         local_mes.deltaX_S->Fill(deltaX);
         local_mes.deltaY_S->Fill(deltaY);
+        local_mes.pullX_S->Fill(pullX);
+        local_mes.pullY_S->Fill(pullY);
+        local_mes.deltaX_eta_S->Fill(eta, deltaX);
+        local_mes.deltaY_eta_S->Fill(eta, deltaY);
+        local_mes.pullX_eta_S->Fill(eta, pullX);
+        local_mes.pullY_eta_S->Fill(eta, pullY);
       }
       // Primary particles only
       if (phase2tkutil::isPrimary(simTrackIt->second, closestSimHit)) {
         if (mType == TrackerGeometry::ModuleType::Ph2PSP) {
           local_mes.deltaX_P_primary->Fill(deltaX);
           local_mes.deltaY_P_primary->Fill(deltaY);
+          local_mes.pullX_P_primary->Fill(pullX);
+          local_mes.pullY_P_primary->Fill(pullY);
         } else if (mType == TrackerGeometry::ModuleType::Ph2PSS || mType == TrackerGeometry::ModuleType::Ph2SS) {
           local_mes.deltaX_S_primary->Fill(deltaX);
           local_mes.deltaY_S_primary->Fill(deltaY);
+          local_mes.pullX_S_primary->Fill(pullX);
+          local_mes.pullY_S_primary->Fill(pullY);
         }
       }
     }
@@ -299,6 +336,24 @@ void Phase2OTValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker, uint32
       local_mes.deltaY_P =
           phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_Y_Pixel"), ibooker);
 
+      local_mes.pullX_P =
+          phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_X_Pixel"), ibooker);
+
+      local_mes.pullY_P =
+          phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_Y_Pixel"), ibooker);
+
+      local_mes.deltaX_eta_P =
+          phase2tkutil::book2DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_X_eta_Pixel"), ibooker);
+
+      local_mes.deltaY_eta_P =
+          phase2tkutil::book2DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_Y_eta_Pixel"), ibooker);
+
+      local_mes.pullX_eta_P =
+          phase2tkutil::book2DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_X_eta_Pixel"), ibooker);
+
+      local_mes.pullY_eta_P =
+          phase2tkutil::book2DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_Y_eta_Pixel"), ibooker);
+
       // Puting primary digis in a subfolder
       ibooker.setCurrentFolder(subdir + '/' + folderName + "/PrimarySimHits");
 
@@ -307,6 +362,12 @@ void Phase2OTValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker, uint32
 
       local_mes.deltaY_P_primary =
           phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_Y_Pixel_Primary"), ibooker);
+
+      local_mes.pullX_P_primary =
+          phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_X_Pixel_Primary"), ibooker);
+
+      local_mes.pullY_P_primary =
+          phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_Y_Pixel_Primary"), ibooker);
     }
     ibooker.setCurrentFolder(subdir + '/' + folderName);
 
@@ -316,6 +377,24 @@ void Phase2OTValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker, uint32
     local_mes.deltaY_S =
         phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_Y_Strip"), ibooker);
 
+    local_mes.pullX_S =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_X_Strip"), ibooker);
+
+    local_mes.pullY_S =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_Y_Strip"), ibooker);
+
+    local_mes.deltaX_eta_S =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_X_eta_Strip"), ibooker);
+
+    local_mes.deltaY_eta_S =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_Y_eta_Strip"), ibooker);
+
+    local_mes.pullX_eta_S =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_X_eta_Strip"), ibooker);
+
+    local_mes.pullY_eta_S =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_Y_eta_Strip"), ibooker);
+
     // Puting primary digis in a subfolder
     ibooker.setCurrentFolder(subdir + '/' + folderName + "/PrimarySimHits");
 
@@ -324,6 +403,12 @@ void Phase2OTValidateCluster::bookLayerHistos(DQMStore::IBooker& ibooker, uint32
 
     local_mes.deltaY_S_primary =
         phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Delta_Y_Strip_Primary"), ibooker);
+
+    local_mes.pullX_S_primary =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_X_Strip_Primary"), ibooker);
+
+    local_mes.pullY_S_primary =
+        phase2tkutil::book1DFromPSet(config_.getParameter<edm::ParameterSet>("Pull_Y_Strip_Primary"), ibooker);
 
     layerMEs_.emplace(folderName, local_mes);
   }
@@ -351,7 +436,7 @@ void Phase2OTValidateCluster::fillDescriptions(edm::ConfigurationDescriptions& d
   {
     edm::ParameterSetDescription psd0;
     psd0.add<std::string>("name", "Delta_X_Pixel");
-    psd0.add<std::string>("title", "#Delta X " + mptag + ";Cluster resolution X dimension");
+    psd0.add<std::string>("title", "#Delta X " + mptag + ";Cluster resolution X dimension;");
     psd0.add<bool>("switch", true);
     psd0.add<double>("xmax", 5.0);
     psd0.add<double>("xmin", -5.0);
@@ -361,12 +446,84 @@ void Phase2OTValidateCluster::fillDescriptions(edm::ConfigurationDescriptions& d
   {
     edm::ParameterSetDescription psd0;
     psd0.add<std::string>("name", "Delta_Y_Pixel");
-    psd0.add<std::string>("title", "#Delta Y " + mptag + ";Cluster resolution Y dimension");
+    psd0.add<std::string>("title", "#Delta Y " + mptag + ";Cluster resolution Y dimension;");
     psd0.add<double>("xmin", -5.0);
     psd0.add<bool>("switch", true);
     psd0.add<double>("xmax", 5.0);
     psd0.add<int>("NxBins", 100);
     desc.add<edm::ParameterSetDescription>("Delta_Y_Pixel", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_X_Pixel");
+    psd0.add<std::string>("title", "Pull X " + mptag + ";pull x;");
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_X_Pixel", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_Y_Pixel");
+    psd0.add<std::string>("title", "Pull Y " + mptag + ";pull y;");
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_Y_Pixel", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Delta_X_eta_Pixel");
+    psd0.add<std::string>("title", "#Delta X vs Eta" + mptag + ";Cluster resolution X dimension;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Delta_X_eta_Pixel", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Delta_Y_eta_Pixel");
+    psd0.add<std::string>("title", "#Delta Y vs Eta" + mptag + ";Cluster resolution Y dimension;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Delta_Y_eta_Pixel", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_X_eta_Pixel");
+    psd0.add<std::string>("title", "Pull X vs Eta" + mptag + ";pull x;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Pull_X_eta_Pixel", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_Y_eta_Pixel");
+    psd0.add<std::string>("title", "Pull Y vs Eta" + mptag + ";pull y;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Pull_Y_eta_Pixel", psd0);
   }
   {
     edm::ParameterSetDescription psd0;
@@ -388,14 +545,34 @@ void Phase2OTValidateCluster::fillDescriptions(edm::ConfigurationDescriptions& d
     psd0.add<int>("NxBins", 100);
     desc.add<edm::ParameterSetDescription>("Delta_Y_Pixel_Primary", psd0);
   }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_X_Pixel_Primary");
+    psd0.add<std::string>("title", "Pull X " + mptag + ";pull y");
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_X_Pixel_Primary", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_Y_Pixel_Primary");
+    psd0.add<std::string>("title", "Pull Y " + mptag + ";pull y");
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_Y_Pixel_Primary", psd0);
+  }
 
   //strip sensors
   {
     edm::ParameterSetDescription psd0;
     psd0.add<std::string>("name", "Delta_X_Strip");
     psd0.add<std::string>("title", "#Delta X " + striptag + ";Cluster resolution X dimension");
-    psd0.add<double>("xmin", -5.0);
     psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
     psd0.add<double>("xmax", 5.0);
     psd0.add<int>("NxBins", 100);
     desc.add<edm::ParameterSetDescription>("Delta_X_Strip", psd0);
@@ -404,18 +581,90 @@ void Phase2OTValidateCluster::fillDescriptions(edm::ConfigurationDescriptions& d
     edm::ParameterSetDescription psd0;
     psd0.add<std::string>("name", "Delta_Y_Strip");
     psd0.add<std::string>("title", "#Delta Y " + striptag + ";Cluster resolution Y dimension");
-    psd0.add<double>("xmin", -5.0);
     psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
     psd0.add<double>("xmax", 5.0);
     psd0.add<int>("NxBins", 100);
     desc.add<edm::ParameterSetDescription>("Delta_Y_Strip", psd0);
   }
   {
     edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_X_Strip");
+    psd0.add<std::string>("title", "Pull X " + striptag + ";pull x");
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_X_Strip", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_Y_Strip");
+    psd0.add<std::string>("title", "Pull Y " + striptag + ";pull y");
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_Y_Strip", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Delta_X_eta_Strip");
+    psd0.add<std::string>("title", "#Delta X vs Eta" + striptag + ";Cluster resolution X dimension;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Delta_X_eta_Strip", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Delta_Y_eta_Strip");
+    psd0.add<std::string>("title", "#Delta Y vs Eta" + striptag + ";Cluster resolution Y dimension;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Delta_Y_eta_Strip", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_X_eta_Strip");
+    psd0.add<std::string>("title", "Pull X vs Eta" + striptag + ";pull x;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Pull_X_eta_Strip", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_Y_eta_Strip");
+    psd0.add<std::string>("title", "Pull Y vs Eta" + striptag + ";pull y;");
+    psd0.add<int>("NxBins", 100);
+    psd0.add<int>("NyBins", 100);
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<double>("ymin", -4.0);
+    psd0.add<double>("ymax", 4.0);
+    desc.add<edm::ParameterSetDescription>("Pull_Y_eta_Strip", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
     psd0.add<std::string>("name", "Delta_X_Strip_Primary");
     psd0.add<std::string>("title", "#Delta X " + striptag + ";Cluster resolution X dimension");
-    psd0.add<double>("xmin", -5.0);
     psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
     psd0.add<double>("xmax", 5.0);
     psd0.add<int>("NxBins", 100);
     desc.add<edm::ParameterSetDescription>("Delta_X_Strip_Primary", psd0);
@@ -424,11 +673,31 @@ void Phase2OTValidateCluster::fillDescriptions(edm::ConfigurationDescriptions& d
     edm::ParameterSetDescription psd0;
     psd0.add<std::string>("name", "Delta_Y_Strip_Primary");
     psd0.add<std::string>("title", "#Delta Y " + striptag + ";Cluster resolution Y dimension");
-    psd0.add<double>("xmin", -5.0);
     psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
     psd0.add<double>("xmax", 5.0);
     psd0.add<int>("NxBins", 100);
     desc.add<edm::ParameterSetDescription>("Delta_Y_Strip_Primary", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_X_Strip_Primary");
+    psd0.add<std::string>("title", "Pull X " + striptag + ";pull x");
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_X_Strip_Primary", psd0);
+  }
+  {
+    edm::ParameterSetDescription psd0;
+    psd0.add<std::string>("name", "Pull_Y_Strip_Primary");
+    psd0.add<std::string>("title", "Pull Y " + striptag + ";pull y");
+    psd0.add<bool>("switch", true);
+    psd0.add<double>("xmin", -5.0);
+    psd0.add<double>("xmax", 5.0);
+    psd0.add<int>("NxBins", 100);
+    desc.add<edm::ParameterSetDescription>("Pull_Y_Strip_Primary", psd0);
   }
   desc.add<std::string>("TopFolderName", "TrackerPhase2OTClusterV");
   desc.add<edm::InputTag>("ClusterSource", edm::InputTag("siPhase2Clusters"));
